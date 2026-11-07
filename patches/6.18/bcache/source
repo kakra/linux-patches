@@ -1,0 +1,5 @@
+branch=rebase-6.18/bcache-updates
+base=v6.18
+head=a89de6ec542c0d6bd8ce968f5e94737aac8ce794
+date=2026-11-06
+pr=41

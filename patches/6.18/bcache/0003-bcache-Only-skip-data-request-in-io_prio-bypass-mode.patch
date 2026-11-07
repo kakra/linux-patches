@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Sat, 3 Oct 2020 12:18:24 +0200
+Subject: [PATCH] bcache: Only skip data request in io_prio bypass mode
+
+Even if ioprio_bypass hints bypassing the request, we still allow it
+for REQ_META|REQ_PRIO bio.
+
+Cc: Eric Wheeler <bcache@linux.ewheeler.net>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ drivers/md/bcache/request.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/md/bcache/request.c b/drivers/md/bcache/request.c
+index a962e24c597fb..3344e07b7b626 100644
+--- a/drivers/md/bcache/request.c
++++ b/drivers/md/bcache/request.c
+@@ -409,11 +409,12 @@ static bool check_should_bypass(struct cached_dev *dc, struct bio *bio)
+ 			goto skip;
+ 	}
+ 
+-	/* If process ioprio is lower-or-equal to dc->ioprio_bypass, then
+-	 * hint for bypass. Note that a lower-priority IO class+value
+-	 * has a greater numeric value. */
++	/* If process ioprio is lower-or-equal to dc->ioprio_bypass, and the
++	 * request is not REQ_META|REQ_PRIO, then hint for bypass. Note that a
++	 * lower-priority IO class+value has a greater numeric value. */
+ 	ioprio = bio->bi_ioprio;
+-	if (ioprio_valid(ioprio) && ioprio_valid(dc->ioprio_writeback)
++	if (!(bio->bi_opf & (REQ_META|REQ_PRIO))
++		&& ioprio_valid(ioprio) && ioprio_valid(dc->ioprio_bypass)
+ 		&& ioprio >= dc->ioprio_bypass) {
+ 		goto skip;
+ 	}
