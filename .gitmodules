@@ -37,5 +37,5 @@
 [submodule "base"]
 	path = base
 	url = https://github.com/kakra/linux.git
-	branch = base-5.15
+	branch = base-6.1
 	shallow = true
