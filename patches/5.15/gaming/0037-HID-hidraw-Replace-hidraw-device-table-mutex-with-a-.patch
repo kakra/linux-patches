@@ -1,0 +1,180 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Andr=C3=A9=20Almeida?= <andrealmeid@collabora.com>
+Date: Tue, 5 Oct 2021 11:24:47 -0300
+Subject: [PATCH] HID: hidraw: Replace hidraw device table mutex with a rwsem
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Currently, the table that stores information about the connected hidraw
+devices has a mutex to prevent concurrent hidraw users to manipulate the
+hidraw table (e.g. delete an entry) while someone is trying to use
+the table (e.g. issuing an ioctl to the device), preventing the kernel
+to referencing a NULL pointer. However, since that every user that wants
+to access the table for both manipulating it and reading it content,
+this prevents concurrent access to the table for read-only operations
+for different or the same device (e.g. two hidraw ioctls can't happen at
+the same time, even if they are completely unrelated).
+
+This proves to be a bottleneck and gives performance issues when using
+multiple HID devices at same time, like VR kits where one can have two
+controllers, the headset and some tracking sensors.
+
+To improve the performance, replace the table mutex with a read-write
+semaphore, enabling multiple threads to issue parallel syscalls to
+multiple devices at the same time while protecting the table for
+concurrent modifications.
+
+Signed-off-by: André Almeida <andrealmeid@collabora.com>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ drivers/hid/hidraw.c | 34 +++++++++++++++++-----------------
+ 1 file changed, 17 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/hid/hidraw.c b/drivers/hid/hidraw.c
+index 11b0ed4f3f8cc..347eb8c4f96a3 100644
+--- a/drivers/hid/hidraw.c
++++ b/drivers/hid/hidraw.c
+@@ -34,7 +34,7 @@ static int hidraw_major;
+ static struct cdev hidraw_cdev;
+ static struct class *hidraw_class;
+ static struct hidraw *hidraw_table[HIDRAW_MAX_DEVICES];
+-static DEFINE_MUTEX(minors_lock);
++static DECLARE_RWSEM(hidraw_rwlock);
+ 
+ static ssize_t hidraw_read(struct file *file, char __user *buffer, size_t count, loff_t *ppos)
+ {
+@@ -107,7 +107,7 @@ static ssize_t hidraw_send_report(struct file *file, const char __user *buffer,
+ 	__u8 *buf;
+ 	int ret = 0;
+ 
+-	lockdep_assert_held(&minors_lock);
++	lockdep_assert_held(&hidraw_rwlock);
+ 
+ 	if (!hidraw_table[minor] || !hidraw_table[minor]->exist) {
+ 		ret = -ENODEV;
+@@ -160,9 +160,9 @@ static ssize_t hidraw_send_report(struct file *file, const char __user *buffer,
+ static ssize_t hidraw_write(struct file *file, const char __user *buffer, size_t count, loff_t *ppos)
+ {
+ 	ssize_t ret;
+-	mutex_lock(&minors_lock);
++	down_read(&hidraw_rwlock);
+ 	ret = hidraw_send_report(file, buffer, count, HID_OUTPUT_REPORT);
+-	mutex_unlock(&minors_lock);
++	up_read(&hidraw_rwlock);
+ 	return ret;
+ }
+ 
+@@ -182,7 +182,7 @@ static ssize_t hidraw_get_report(struct file *file, char __user *buffer, size_t
+ 	int ret = 0, len;
+ 	unsigned char report_number;
+ 
+-	lockdep_assert_held(&minors_lock);
++	lockdep_assert_held(&hidraw_rwlock);
+ 
+ 	if (!hidraw_table[minor] || !hidraw_table[minor]->exist) {
+ 		ret = -ENODEV;
+@@ -272,7 +272,7 @@ static int hidraw_open(struct inode *inode, struct file *file)
+ 		goto out;
+ 	}
+ 
+-	mutex_lock(&minors_lock);
++	down_read(&hidraw_rwlock);
+ 	if (!hidraw_table[minor] || !hidraw_table[minor]->exist) {
+ 		err = -ENODEV;
+ 		goto out_unlock;
+@@ -301,7 +301,7 @@ static int hidraw_open(struct inode *inode, struct file *file)
+ 	spin_unlock_irqrestore(&hidraw_table[minor]->list_lock, flags);
+ 	file->private_data = list;
+ out_unlock:
+-	mutex_unlock(&minors_lock);
++	up_read(&hidraw_rwlock);
+ out:
+ 	if (err < 0)
+ 		kfree(list);
+@@ -348,7 +348,7 @@ static int hidraw_release(struct inode * inode, struct file * file)
+ 	unsigned long flags;
+ 	int i;
+ 
+-	mutex_lock(&minors_lock);
++	down_write(&hidraw_rwlock);
+ 
+ 	spin_lock_irqsave(&hidraw_table[minor]->list_lock, flags);
+ 	for (i = list->tail; i < list->head; i++)
+@@ -359,7 +359,7 @@ static int hidraw_release(struct inode * inode, struct file * file)
+ 
+ 	drop_ref(hidraw_table[minor], 0);
+ 
+-	mutex_unlock(&minors_lock);
++	up_write(&hidraw_rwlock);
+ 	return 0;
+ }
+ 
+@@ -372,7 +372,7 @@ static long hidraw_ioctl(struct file *file, unsigned int cmd,
+ 	struct hidraw *dev;
+ 	void __user *user_arg = (void __user*) arg;
+ 
+-	mutex_lock(&minors_lock);
++	down_read(&hidraw_rwlock);
+ 	dev = hidraw_table[minor];
+ 	if (!dev || !dev->exist) {
+ 		ret = -ENODEV;
+@@ -490,7 +490,7 @@ static long hidraw_ioctl(struct file *file, unsigned int cmd,
+ 		ret = -ENOTTY;
+ 	}
+ out:
+-	mutex_unlock(&minors_lock);
++	up_read(&hidraw_rwlock);
+ 	return ret;
+ }
+ 
+@@ -549,7 +549,7 @@ int hidraw_connect(struct hid_device *hid)
+ 
+ 	result = -EINVAL;
+ 
+-	mutex_lock(&minors_lock);
++	down_write(&hidraw_rwlock);
+ 
+ 	for (minor = 0; minor < HIDRAW_MAX_DEVICES; minor++) {
+ 		if (hidraw_table[minor])
+@@ -560,7 +560,7 @@ int hidraw_connect(struct hid_device *hid)
+ 	}
+ 
+ 	if (result) {
+-		mutex_unlock(&minors_lock);
++		up_write(&hidraw_rwlock);
+ 		kfree(dev);
+ 		goto out;
+ 	}
+@@ -570,7 +570,7 @@ int hidraw_connect(struct hid_device *hid)
+ 
+ 	if (IS_ERR(dev->dev)) {
+ 		hidraw_table[minor] = NULL;
+-		mutex_unlock(&minors_lock);
++		up_write(&hidraw_rwlock);
+ 		result = PTR_ERR(dev->dev);
+ 		kfree(dev);
+ 		goto out;
+@@ -586,7 +586,7 @@ int hidraw_connect(struct hid_device *hid)
+ 	dev->exist = 1;
+ 	hid->hidraw = dev;
+ 
+-	mutex_unlock(&minors_lock);
++	up_write(&hidraw_rwlock);
+ out:
+ 	return result;
+ 
+@@ -597,11 +597,11 @@ void hidraw_disconnect(struct hid_device *hid)
+ {
+ 	struct hidraw *hidraw = hid->hidraw;
+ 
+-	mutex_lock(&minors_lock);
++	down_write(&hidraw_rwlock);
+ 
+ 	drop_ref(hidraw, 1);
+ 
+-	mutex_unlock(&minors_lock);
++	up_write(&hidraw_rwlock);
+ }
+ EXPORT_SYMBOL_GPL(hidraw_disconnect);
+ 

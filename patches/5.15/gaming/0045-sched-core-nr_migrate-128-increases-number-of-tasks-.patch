@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alexandre Frade <admfrade@gmail.com>
+Date: Mon, 29 Jan 2018 18:29:13 +0000
+Subject: [PATCH] sched/core: nr_migrate = 128 increases number of tasks to
+ iterate in a single balance run.
+
+Signed-off-by: Alexandre Frade <admfrade@gmail.com>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ kernel/sched/core.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index bb684fe1b96ed..d01b323eed279 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -75,7 +75,7 @@ __read_mostly int sysctl_resched_latency_warn_once = 1;
+  * Number of tasks to iterate in a single balance run.
+  * Limited because this is done with IRQs disabled.
+  */
+-const_debug unsigned int sysctl_sched_nr_migrate = 32;
++const_debug unsigned int sysctl_sched_nr_migrate = 128;
+ 
+ /*
+  * period over which we measure -rt task CPU usage in us.
+@@ -367,9 +367,9 @@ static inline void sched_core_dequeue(struct rq *rq, struct task_struct *p) { }
+ 
+ /*
+  * part of the period that we allow rt tasks to run in us.
+- * default: 0.95s
++ * XanMod default: 0.98s
+  */
+-int sysctl_sched_rt_runtime = 950000;
++int sysctl_sched_rt_runtime = 980000;
+ 
+ 
+ /*
