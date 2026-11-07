@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Sun, 4 Jan 2026 15:08:07 +0100
+Subject: [PATCH] bcache: make bcache workqueue WQ_UNBOUND
+
+It seems to queue a lot of work, and I've seen messages like this,
+suggesting to switch to WQ_UNBOUND:
+
+> kernel: workqueue: cache_lookup hogged CPU for >10000us 11 times, consider switching to WQ_UNBOUND
+
+Short observation shows, that this might also improve perceived
+desktop responsiveness. But this needs more testing.
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ drivers/md/bcache/super.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/md/bcache/super.c b/drivers/md/bcache/super.c
+index 97d9adb0bf96b..d845235d64c89 100644
+--- a/drivers/md/bcache/super.c
++++ b/drivers/md/bcache/super.c
+@@ -2918,7 +2918,7 @@ static int __init bcache_init(void)
+ 	if (bch_btree_init())
+ 		goto err;
+ 
+-	bcache_wq = alloc_workqueue("bcache", WQ_MEM_RECLAIM | WQ_PERCPU, 0);
++	bcache_wq = alloc_workqueue("bcache", WQ_MEM_RECLAIM | WQ_UNBOUND, 0);
+ 	if (!bcache_wq)
+ 		goto err;
+ 
