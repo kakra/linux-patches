@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Sat, 19 Jan 2019 21:04:35 +0100
+Subject: [PATCH] xpadneo: Exclude xpadneo devices from hid-microsoft
+
+Remove Xbox One S device id from specialized microsoft driver in order to
+prevent it from claiming the device.
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ drivers/hid/hid-microsoft.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/hid/hid-microsoft.c b/drivers/hid/hid-microsoft.c
+index 9345e2bfd56ed..9058bc00068e5 100644
+--- a/drivers/hid/hid-microsoft.c
++++ b/drivers/hid/hid-microsoft.c
+@@ -447,6 +447,7 @@ static const struct hid_device_id ms_devices[] = {
+ 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x091B),
+ 		.driver_data = MS_SURFACE_DIAL },
+ 
++#if !IS_ENABLED(CONFIG_HID_XPADNEO)
+ 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_XBOX_CONTROLLER_MODEL_1708),
+ 		.driver_data = MS_QUIRK_FF },
+ 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_XBOX_CONTROLLER_MODEL_1708_BLE),
+@@ -459,6 +460,7 @@ static const struct hid_device_id ms_devices[] = {
+ 		.driver_data = MS_QUIRK_FF },
+ 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_8BITDO_SN30_PRO_PLUS),
+ 		.driver_data = MS_QUIRK_FF },
++#endif
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(hid, ms_devices);
