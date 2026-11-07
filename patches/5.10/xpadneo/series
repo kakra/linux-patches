@@ -1,0 +1,7 @@
+0001-Bluetooth-L2CAP-Try-harder-to-accept-device-not-know.patch
+0002-xpadneo-Add-hid-xpadneo-v0.9.patch
+0003-xpadneo-Exclude-xpadneo-devices-from-hid-generic.patch
+0004-xpadneo-Exclude-xpadneo-devices-from-hid-microsoft.patch
+0005-Added-hid-xpadneo-to-Makefile.patch
+0006-Added-hid-xpadneo-to-Kconfig-hid.patch
+0007-xpadneo-Merge-upstream-changes.patch

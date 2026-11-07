@@ -1,0 +1,5 @@
+branch=rebase-5.10/xpadneo
+base=v5.10.38
+head=d24db69a0d21f717f16c898effe16b7153042da9
+date=2021-05-25
+pr=11

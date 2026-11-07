@@ -28,3 +28,9 @@
 	branch = rebase-5.10/pf-ksm
 	shallow = true
 	pr = 7
+[submodule "xpadneo"]
+	path = series/xpadneo
+	url = https://github.com/kakra/linux.git
+	branch = rebase-5.10/xpadneo
+	shallow = true
+	pr = 11
