@@ -4,6 +4,42 @@ The series per kernel series, newest first. "Last change" is the commit
 date of the exported tip; the pull request dates show when the series
 was tracked.
 
+## 6.12
+
+| Series | Branch | Base | Patches | Last change | Pull request |
+|---|---|---|---|---|---|
+| [`bcache`](patches/6.12/bcache/) | `rebase-6.12/bcache-updates` | `v6.12` | 3 | 2024-11-18 | [#35][pr-35], 2024-11-23 to 2025-12-14 |
+| [`btrfs`](patches/6.12/btrfs/) | `rebase-6.12/btrfs-patches` | `v6.12` | 36 | 2025-06-23 | [#36][pr-36], 2024-11-23 to 2025-12-14 |
+| [`cltweaks`](patches/6.12/cltweaks/) | `rebase-6.12/clearlinux-tweaks` | `v6.12.18` | 38 | 2025-03-09 | [#34][pr-34], 2024-11-23 to 2025-12-14 |
+| [`gaming`](patches/6.12/gaming/) | `rebase-6.12/gaming-patches` | `v6.12.31` | 53 | 2025-10-05 | [#33][pr-33], 2024-11-23 to 2025-12-15 |
+| [`pf-ksm`](patches/6.12/pf-ksm/) | `rebase-6.12/pf-ksm` | `v6.12` | 2 | 2024-11-18 | [#37][pr-37], 2024-11-23 to 2025-12-14 |
+| [`xpadneo`](patches/6.12/xpadneo/) | `rebase-6.12/xpadneo` | `v6.12` | 6 | 2024-11-18 | [#38][pr-38], 2024-11-23 to open |
+
+Base: `base-6.12` at `v6.12.31`, pinned as `base/`.
+
+- `gaming` (branch renamed from `steam-patches` to `gaming-patches`):
+  winesync is replaced by ntsync (ntsync7), and the BORE scheduler is
+  added. Based on 6.12.31.
+- `btrfs`: adds RAID1 read balancing policies (round-robin, lowest latency,
+  a hybrid of both, in-flight queue depth and a preferred device) with
+  per-device read statistics, and an allocator hint that disables
+  allocations on a device completely. A guide by Forza-tng documents the
+  allocator hints and read policies ([wiki][forza-guide]).
+- `cltweaks`: Clear Linux patches of 6.12, based on 6.12.18. With the
+  PDS/BMQ patches of the Gentoo kernel (`USE=experimental`) they conflict;
+  excluding Gentoo patches 5020 and 5021 avoids that.
+- `pf-ksm`: uses `pidfd_get_task()`.
+- `xpadneo`: the last kernel series of the in-kernel driver.
+
+[forza-guide]: https://wiki.tnonline.net/w/Btrfs/Allocator_Hints
+
+[pr-35]: https://github.com/kakra/linux/pull/35
+[pr-36]: https://github.com/kakra/linux/pull/36
+[pr-34]: https://github.com/kakra/linux/pull/34
+[pr-33]: https://github.com/kakra/linux/pull/33
+[pr-37]: https://github.com/kakra/linux/pull/37
+[pr-38]: https://github.com/kakra/linux/pull/38
+
 ## 6.6
 
 | Series | Branch | Base | Patches | Last change | Pull request |
