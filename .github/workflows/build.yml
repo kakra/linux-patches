@@ -33,9 +33,10 @@ jobs:
           INPUT_VERSION: ${{ inputs.version }}
         run: |
           version=$INPUT_VERSION
-          [ -n "$version" ] || version=$(ls patches | sort -V | tail -n1)
+          [ -n "$version" ] || version=$(for d in patches/*/; do basename "$d"; done |
+            grep -E '^[0-9]+\.[0-9]+$' | sort -V | tail -n1)
           [[ $version =~ ^[0-9]+\.[0-9]+$ ]] || { echo "invalid version: $version"; exit 1; }
-          series=$(for d in patches/$version/*/; do [ -f "$d/series" ] && basename "$d"; done)
+          series=$(for d in patches/$version/*/; do if [ -f "$d/series" ]; then basename "$d"; fi; done)
           for s in $series; do
             [[ $s =~ ^[a-z0-9-]+$ ]] || { echo "invalid series name: $s"; exit 1; }
           done
