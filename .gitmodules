@@ -10,3 +10,9 @@
 	branch = rebase-5.4/ck-patches
 	shallow = true
 	pr = 2
+[submodule "cltweaks"]
+	path = series/cltweaks
+	url = https://github.com/kakra/linux.git
+	branch = rebase-5.4/clearlinux-tweaks
+	shallow = true
+	pr = 3
