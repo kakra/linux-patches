@@ -100,10 +100,13 @@ Default section order:
 - Authorship: a series keeps the original authors of its commits. Do not
   mix authorship within a commit.
 - Commits on the kernel branches follow
-  `Documentation/process/coding-assistants.rst`: an assistant adds an
-  `Assisted-by: Claude` trailer to commits it wrote or changed (a new
-  commit, a conflict resolution with a `[Rebased onto ...]` note) and never
-  a `Signed-off-by`, no `Co-Authored-By` either. The maintainer adds his
+  `Documentation/process/coding-assistants.rst`: an assistant that writes
+  or changes a commit (a new commit, a conflict resolution with a
+  `[Rebased onto ...]` note) adds an `Assisted-by:` trailer naming itself
+  (`Assisted-by: Claude`, `Assisted-by: Codex:<model>`, ...), and never a
+  `Signed-off-by` or `Co-Authored-By`. Trailers in commits of other
+  authors, including their own `Assisted-by` lines, stay as they are; a
+  commit picked unchanged gets no new `Assisted-by`. The maintainer adds his
   own `Signed-off-by` after review. The kernel clone has a
   `prepare-commit-msg` hook that adds it automatically, so commit there
   with `git -c core.hooksPath=/dev/null` as an assistant.
