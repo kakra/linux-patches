@@ -20,9 +20,11 @@ with `latency-rr` during a long balance).
 
 ## Steps
 
-As in the original script: random reads 4k QD1 and QD32, sequential reads
-1M QD16, 120 s each, with and without a background defrag (the defrag was
-skipped for the read/write run on the SSDs: it finished too fast).
+The tests of the original script: random reads 4k QD1 and QD32, sequential
+reads 1M QD16, 120 s each. The published raw data of these three runs only
+contains the runs without background defrag; ForzaTNG skipped the defrag
+for the read/write run because it finished too fast. Runs with defrag
+follow in [2025-05-08](../2025-05-08-btrfs-read-policies-forza-jobs/).
 
 ## Results
 
