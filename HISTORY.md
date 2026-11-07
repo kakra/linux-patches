@@ -4,6 +4,44 @@ The series per kernel series, newest first. "Last change" is the commit
 date of the exported tip; the pull request dates show when the series
 was tracked.
 
+## 6.18
+
+| Series | Branch | Base | Patches | Last change | Pull request |
+|---|---|---|---|---|---|
+| [`bcache`](patches/6.18/bcache/) | `rebase-6.18/bcache-updates` | `v6.18` | 4 | 2026-11-06 | [#41][pr-41], 2025-12-14 to open |
+| [`btrfs`](patches/6.18/btrfs/) | `rebase-6.18/btrfs-patches` | `v6.18` | 19 | 2026-08-30 | [#40][pr-40], 2025-12-14 to open |
+| [`cltweaks`](patches/6.18/cltweaks/) | `rebase-6.18/cltweaks` | `v6.18` | 22 | 2025-12-14 | [#43][pr-43], 2025-12-14 to open |
+| [`gaming`](patches/6.18/gaming/) | `rebase-6.18/gaming-patches` | `v6.18.46` | 21 | 2026-10-05 | [#44][pr-44], 2025-12-15 to open |
+| [`memory`](patches/6.18/memory/) | `rebase-6.18/memory` | `v6.18` | 2 | 2026-05-04 | [#45][pr-45], 2026-05-07 to open |
+| [`pf-ksm`](patches/6.18/pf-ksm/) | `rebase-6.18/pf-ksm` | `v6.18` | 2 | 2025-12-14 | [#42][pr-42], 2025-12-14 to open |
+
+Base: `base-6.18` at `v6.18.46`, pinned as `base/`.
+
+- `xpadneo` is given up as an in-kernel series after 6.12; a different
+  solution replaces it.
+- `cltweaks` (branch renamed from `clearlinux-tweaks`): Intel stopped
+  maintaining the Clear Linux patches; the series is kept as long as it
+  applies.
+- `gaming`: ntsync is upstream and dropped, as are most ZEN patches not
+  related to interactivity. Adds BORE from CachyOS, the ADIOS IO scheduler
+  as default, and prefers full idle SMT cores. Based on 6.18.46.
+- `btrfs`: reworked into tiered allocator hints behind their own Kconfig
+  option and queue based read policies (queue-adaptive, ties broken by
+  mirror age), with read latency health statistics per device; the read
+  policies are no longer experimental.
+- `bcache`: makes the bcache workqueue `WQ_UNBOUND`.
+- `memory`: new. Working set protection from le9uo, adapted to mgLRU and
+  enabled by default (`vm.workingset_protection`): page cache of active
+  applications is kept under memory pressure, and the OOM killer acts
+  earlier instead of the system thrashing.
+
+[pr-41]: https://github.com/kakra/linux/pull/41
+[pr-40]: https://github.com/kakra/linux/pull/40
+[pr-43]: https://github.com/kakra/linux/pull/43
+[pr-44]: https://github.com/kakra/linux/pull/44
+[pr-45]: https://github.com/kakra/linux/pull/45
+[pr-42]: https://github.com/kakra/linux/pull/42
+
 ## 6.12
 
 | Series | Branch | Base | Patches | Last change | Pull request |
