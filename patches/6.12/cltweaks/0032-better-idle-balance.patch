@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Mon, 18 Nov 2024 18:32:59 +0100
+Subject: [PATCH] better idle balance
+
+Author: Intel ClearLinux <unknown>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ kernel/sched/fair.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index ddc096d6b0c20..e792e85ae8607 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -12866,7 +12866,7 @@ static int sched_balance_newidle(struct rq *this_rq, struct rq_flags *rf)
+ 
+ 		update_next_balance(sd, &next_balance);
+ 
+-		if (this_rq->avg_idle < curr_cost + sd->max_newidle_lb_cost)
++		if (this_rq->avg_idle/2 < curr_cost + sd->max_newidle_lb_cost)
+ 			break;
+ 
+ 		if (sd->flags & SD_BALANCE_NEWIDLE) {
