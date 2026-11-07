@@ -31,9 +31,9 @@
 [submodule "bcache"]
 	path = series/bcache
 	url = https://github.com/kakra/linux.git
-	branch = rebase-6.6/bcache-updates
+	branch = rebase-6.12/bcache-updates
 	shallow = true
-	pr = 32
+	pr = 35
 [submodule "base"]
 	path = base
 	url = https://github.com/kakra/linux.git
