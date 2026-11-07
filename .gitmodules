@@ -13,9 +13,9 @@
 [submodule "pf-ksm"]
 	path = series/pf-ksm
 	url = https://github.com/kakra/linux.git
-	branch = rebase-5.15/pf-ksm
+	branch = rebase-6.1/pf-ksm
 	shallow = true
-	pr = 18
+	pr = 25
 [submodule "xpadneo"]
 	path = series/xpadneo
 	url = https://github.com/kakra/linux.git
