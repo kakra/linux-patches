@@ -28,6 +28,12 @@
 	branch = rebase-6.18/bcache-updates
 	shallow = true
 	pr = 41
+[submodule "memory"]
+	path = series/memory
+	url = https://github.com/kakra/linux.git
+	branch = rebase-6.18/memory
+	shallow = true
+	pr = 45
 [submodule "base"]
 	path = base
 	url = https://github.com/kakra/linux.git
