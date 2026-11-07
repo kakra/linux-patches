@@ -1,0 +1,4 @@
+branch=rebase-7.3/gaming-patches
+base=v7.3
+head=f7c82f4bdc18b20a206bfe978c9f67b690f97ffe
+date=2026-11-07

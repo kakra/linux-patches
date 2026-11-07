@@ -1,9 +1,8 @@
 [submodule "gaming"]
 	path = series/gaming
 	url = https://github.com/kakra/linux.git
-	branch = rebase-6.18/gaming-patches
+	branch = rebase-7.3/gaming-patches
 	shallow = true
-	pr = 44
 [submodule "btrfs"]
 	path = series/btrfs
 	url = https://github.com/kakra/linux.git

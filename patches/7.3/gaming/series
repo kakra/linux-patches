@@ -1,0 +1,16 @@
+0001-ZEN-INTERACTIVE-Base-config-item.patch
+0002-ZEN-INTERACTIVE-Use-BFQ-as-the-elevator-for-SQ-devic.patch
+0003-block-Clean-up-elevator_set_default.patch
+0004-ZEN-INTERACTIVE-Use-Kyber-as-the-elevator-for-MQ-dev.patch
+0005-ZEN-INTERACTIVE-Enable-background-reclaim-of-hugepag.patch
+0006-ZEN-INTERACTIVE-Tune-EEVDF-for-interactivity.patch
+0007-ZEN-INTERACTIVE-Tune-ondemand-governor-for-interacti.patch
+0008-ZEN-INTERACTIVE-mm-swap-Disable-swap-in-readahead.patch
+0009-ZEN-INTERACTIVE-Disable-split-lock-mitigation-by-def.patch
+0010-ZEN-Set-default-max-map-count-to-INT_MAX-5.patch
+0011-ZEN-ahci-Disable-staggered-spinup-by-default.patch
+0012-ZEN-Initialize-ata-before-graphics.patch
+0013-ADIOS-Add-linux7.3-rc1-ADIOS-3.3.0r2.patch
+0014-ADIOS-Make-ADIOS-the-Default-I-O-scheduler.patch
+0015-mm-working-set-protection.patch
+0016-mm-enable-vm.workingset_protection-by-default.patch
