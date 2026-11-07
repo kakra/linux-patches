@@ -14,17 +14,24 @@ your system by booting another kernel. There is no support and no warranty
 
 ## Series
 
-| Series | Content | Kernel series |
+Active series, maintained for the current kernel series (7.3):
+
+| Series | Content | Since |
 |---|---|---|
-| `bcache` | bcache IO hinting: low priority IO bypasses the cache | 5.4 to 7.3 |
-| `btrfs` | btrfs allocator hints and RAID1 read balancing policies | 5.15 to 7.3 |
-| `ck` | Con Kolivas' patch set (given up, parts moved into `gaming`) | 5.4, 5.10 |
-| `cltweaks` | Selected Clear Linux performance patches (dissolved into `platform` and `gaming`) | 5.4 to 6.18 |
-| `gaming` | Gaming and desktop interactivity patches (formerly `steam-patches`) | 5.4 to 7.3 |
-| `memory` | Working set protection under memory pressure (le9uo, moved into `gaming`) | 6.18 |
-| `pf-ksm` | post-factum's KSM patches for uksmd (moved into `platform`) | 5.4 to 6.18 |
+| `bcache` | bcache IO hinting: low priority IO bypasses the cache | 5.4 |
+| `btrfs` | btrfs allocator hints and RAID1 read balancing policies | 5.15 |
+| `gaming` | Gaming and desktop interactivity patches: ZEN interactive defaults, ADIOS, working set protection (le9uo); formerly `steam-patches` | 5.4 |
 | `platform` | Patches useful on servers and recommended for desktops: process KSM for uksmd, Clear Linux network and locking tweaks, BBRv3 | 7.3 |
-| `xpadneo` | xpadneo Xbox controller driver as in-kernel driver | 5.10 to 6.12 |
+
+Historical series, kept as exports in `patches/`:
+
+| Series | Content | Kernel series | What became of it |
+|---|---|---|---|
+| `ck` | Con Kolivas' patch set | 5.4, 5.10 | given up; threaded IRQs moved to `gaming` until 6.18 |
+| `cltweaks` | Selected Clear Linux performance patches | 5.4 to 6.18 | dissolved into `platform` and `gaming` |
+| `memory` | Working set protection under memory pressure (le9uo) | 6.18 | moved into `gaming` |
+| `pf-ksm` | post-factum's KSM patches for uksmd | 5.4 to 6.18 | moved into `platform` |
+| `xpadneo` | xpadneo Xbox controller driver as in-kernel driver | 5.10 to 6.12 | given up as an in-kernel series |
 
 [HISTORY.md](HISTORY.md) describes each kernel series: which branches, on
 which stable release, with which pull request.
