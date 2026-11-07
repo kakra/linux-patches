@@ -72,6 +72,9 @@ def main():
         if not m:
             continue
         defrag, policy, test = m.groups()
+        # Runs with several fio jobs carry the job count in the policy part
+        # of the name (pid_jobs4); keep it out of the policy column.
+        policy = re.sub(r"_jobs\d+$", "", policy)
         for direction, v in parse(path).items():
             rows.append((defrag, test, policy, direction, v))
     if not rows:
