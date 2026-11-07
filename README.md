@@ -37,6 +37,7 @@ which stable release, with which pull request.
 | `patches/<version>/<name>/` | The series exported from that branch, applicable with `git am` to its base tag |
 | `benchmarks/<date>-<topic>/` | Benchmark runs and published results, with raw data |
 | `observations/<version>.md` | Dated notes on how the system behaves with a kernel series |
+| `configs/<name>.config` | Kconfig fragments with the options each series needs, used by the test builds |
 | `tools/` | Export, check and submodule helpers; `tools/bench/` holds the benchmark scripts |
 | `docs/` | Workflow |
 | `HISTORY.md` | The series per kernel series, and what changed |
