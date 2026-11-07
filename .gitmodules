@@ -25,9 +25,9 @@
 [submodule "btrfs"]
 	path = series/btrfs
 	url = https://github.com/kakra/linux.git
-	branch = rebase-5.15/btrfs-patches
+	branch = rebase-6.1/btrfs-patches
 	shallow = true
-	pr = 20
+	pr = 26
 [submodule "base"]
 	path = base
 	url = https://github.com/kakra/linux.git

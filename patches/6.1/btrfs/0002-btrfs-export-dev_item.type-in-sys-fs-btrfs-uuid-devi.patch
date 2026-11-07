@@ -1,0 +1,41 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Goffredo Baroncelli <kreijack@inwind.it>
+Date: Sun, 24 Oct 2021 17:31:05 +0200
+Subject: [PATCH] btrfs: export dev_item.type in
+ /sys/fs/btrfs/<uuid>/devinfo/<devid>/type
+
+Signed-off-by: Goffredo Baroncelli <kreijack@inwind.it>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/sysfs.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/fs/btrfs/sysfs.c b/fs/btrfs/sysfs.c
+index 74fef1f49c358..efa260bab9442 100644
+--- a/fs/btrfs/sysfs.c
++++ b/fs/btrfs/sysfs.c
+@@ -1761,6 +1761,16 @@ static ssize_t btrfs_devinfo_error_stats_show(struct kobject *kobj,
+ }
+ BTRFS_ATTR(devid, error_stats, btrfs_devinfo_error_stats_show);
+ 
++static ssize_t btrfs_devinfo_type_show(struct kobject *kobj,
++					    struct kobj_attribute *a, char *buf)
++{
++	struct btrfs_device *device = container_of(kobj, struct btrfs_device,
++						   devid_kobj);
++
++	return scnprintf(buf, PAGE_SIZE, "0x%08llx\n", device->type);
++}
++BTRFS_ATTR(devid, type, btrfs_devinfo_type_show);
++
+ /*
+  * Information about one device.
+  *
+@@ -1774,6 +1784,7 @@ static struct attribute *devid_attrs[] = {
+ 	BTRFS_ATTR_PTR(devid, replace_target),
+ 	BTRFS_ATTR_PTR(devid, scrub_speed_max),
+ 	BTRFS_ATTR_PTR(devid, writeable),
++	BTRFS_ATTR_PTR(devid, type),
+ 	NULL
+ };
+ ATTRIBUTE_GROUPS(devid);

@@ -1,0 +1,105 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Goffredo Baroncelli <kreijack@inwind.it>
+Date: Sun, 24 Oct 2021 17:31:06 +0200
+Subject: [PATCH] btrfs: change the DEV_ITEM 'type' field via sysfs
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/sysfs.c   | 56 +++++++++++++++++++++++++++++++++++++++++++++-
+ fs/btrfs/volumes.c |  2 +-
+ fs/btrfs/volumes.h |  2 ++
+ 3 files changed, 58 insertions(+), 2 deletions(-)
+
+diff --git a/fs/btrfs/sysfs.c b/fs/btrfs/sysfs.c
+index efa260bab9442..43a15b9fe5016 100644
+--- a/fs/btrfs/sysfs.c
++++ b/fs/btrfs/sysfs.c
+@@ -1769,7 +1769,61 @@ static ssize_t btrfs_devinfo_type_show(struct kobject *kobj,
+ 
+ 	return scnprintf(buf, PAGE_SIZE, "0x%08llx\n", device->type);
+ }
+-BTRFS_ATTR(devid, type, btrfs_devinfo_type_show);
++
++static ssize_t btrfs_devinfo_type_store(struct kobject *kobj,
++				 struct kobj_attribute *a,
++				 const char *buf, size_t len)
++{
++	struct btrfs_fs_info *fs_info;
++	struct btrfs_root *root;
++	struct btrfs_device *device;
++	int ret;
++	struct btrfs_trans_handle *trans;
++
++	u64 type, prev_type;
++
++	device = container_of(kobj, struct btrfs_device, devid_kobj);
++	fs_info = device->fs_info;
++	if (!fs_info)
++		return -EPERM;
++
++	root = fs_info->chunk_root;
++	if (sb_rdonly(fs_info->sb))
++		return -EROFS;
++
++	ret = kstrtou64(buf, 0, &type);
++	if (ret < 0)
++		return -EINVAL;
++
++	/* for now, allow to touch only the 'allocation hint' bits */
++	if (type & ~((1 << BTRFS_DEV_ALLOCATION_MASK_BIT_COUNT) - 1))
++		return -EINVAL;
++
++	trans = btrfs_start_transaction(root, 1);
++	if (IS_ERR(trans))
++		return PTR_ERR(trans);
++
++	prev_type = device->type;
++	device->type = type;
++
++	ret = btrfs_update_device(trans, device);
++
++	if (ret < 0) {
++		btrfs_abort_transaction(trans, ret);
++		btrfs_end_transaction(trans);
++		goto abort;
++	}
++
++	ret = btrfs_commit_transaction(trans);
++	if (ret < 0)
++		goto abort;
++
++	return len;
++abort:
++	device->type = prev_type;
++	return  ret;
++}
++BTRFS_ATTR_RW(devid, type, btrfs_devinfo_type_show, btrfs_devinfo_type_store);
+ 
+ /*
+  * Information about one device.
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index 635f45f1a2ef8..435162d153118 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -2841,7 +2841,7 @@ int btrfs_init_new_device(struct btrfs_fs_info *fs_info, const char *device_path
+ 	return ret;
+ }
+ 
+-static noinline int btrfs_update_device(struct btrfs_trans_handle *trans,
++noinline int btrfs_update_device(struct btrfs_trans_handle *trans,
+ 					struct btrfs_device *device)
+ {
+ 	int ret;
+diff --git a/fs/btrfs/volumes.h b/fs/btrfs/volumes.h
+index 099def5613b87..a7e52e9d7716a 100644
+--- a/fs/btrfs/volumes.h
++++ b/fs/btrfs/volumes.h
+@@ -755,6 +755,8 @@ int btrfs_bg_type_to_factor(u64 flags);
+ const char *btrfs_bg_type_to_raid_name(u64 flags);
+ int btrfs_verify_dev_extents(struct btrfs_fs_info *fs_info);
+ bool btrfs_repair_one_zone(struct btrfs_fs_info *fs_info, u64 logical);
++int btrfs_update_device(struct btrfs_trans_handle *trans,
++                                       struct btrfs_device *device);
+ 
+ bool btrfs_pinned_by_swapfile(struct btrfs_fs_info *fs_info, void *ptr);
+ 
