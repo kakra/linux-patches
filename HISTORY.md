@@ -4,6 +4,38 @@ The series per kernel series, newest first. "Last change" is the commit
 date of the exported tip; the pull request dates show when the series
 was tracked.
 
+## 7.3
+
+| Series | Branch | Base | Patches | Last change | Pull request |
+|---|---|---|---|---|---|
+| [`bcache`](patches/7.3/bcache/) | `rebase-7.3/bcache-updates` | `v7.3` | 4 | 2026-11-06 | not opened yet |
+| [`btrfs`](patches/7.3/btrfs/) | `rebase-7.3/btrfs-patches` | `v7.3` | 18 | 2026-11-07 | not opened yet |
+| [`gaming`](patches/7.3/gaming/) | `rebase-7.3/gaming-patches` | `v7.3` | 16 | 2026-11-07 | not opened yet |
+| [`platform`](patches/7.3/platform/) | `rebase-7.3/platform` | `v7.3` | 24 | 2026-11-07 | not opened yet |
+
+Base: `base-7.3` at `v7.3`, pinned as `base/`.
+
+7.3 is expected to be the next long term kernel. The series are cut anew
+so that each applies alone and together with any other
+(`tools/check-matrix.sh`), and so that the parts useful on servers can be
+used without the gaming patches. Test builds of every series run from this
+repository (`tools/ci-build.sh`, GitHub workflow).
+
+- `platform`: new. Patches useful on servers and recommended for
+  desktops: the pf-ksm syscalls (renumbered to 473 to 475), the network
+  and locking patches of Clear Linux, two ZEN patches (AVX2 off, evdev),
+  and BBRv3 from pf-kernel with a fix for its default option.
+- `gaming`: cut anew. ZEN INTERACTIVE from `v7.2.15-zen1` with the new
+  split lock default, ADIOS 3.3.0r2 and le9uo 1.15 fetched anew from
+  upstream (le9uo came from `memory`). Dropped: BORE, the
+  `FUTEX_WAIT_MULTIPLE` entry point, threaded IRQs by default, Intel NVMe
+  remap, GCC stack conservation; prefer full-idle SMT cores waits for a
+  port.
+- `btrfs`, `bcache`: the 6.18 series rebased onto 7.3; the btrfs build
+  workflow commit moved into this repository.
+- `cltweaks`, `memory`, `pf-ksm` are given up as series; their patches
+  that stay moved to `platform` and `gaming`.
+
 ## 6.18
 
 | Series | Branch | Base | Patches | Last change | Pull request |
