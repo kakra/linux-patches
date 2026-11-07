@@ -105,6 +105,10 @@ Generated with `tools/bench/fio-summary.py` from the raw data.
 
 ## Notes
 
+The tables in the original post give fio's submission latency (`slat`) as
+the average latency; the tables above are generated from the raw data and
+use the total latency (`lat`).
+
 ForzaTNG's summary: `queue` doubled the sequential read throughput of
 `pid` on the SSDs; on the HDDs it was better too, by less. In the read/write
 run, `queue` led the random tests, while `pid` was well ahead for sequential
