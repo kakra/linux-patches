@@ -1,9 +1,9 @@
 [submodule "gaming"]
 	path = series/gaming
 	url = https://github.com/kakra/linux.git
-	branch = rebase-5.4/steam-patches
+	branch = rebase-5.10/steam-patches
 	shallow = true
-	pr = 1
+	pr = 10
 [submodule "ck"]
 	path = series/ck
 	url = https://github.com/kakra/linux.git

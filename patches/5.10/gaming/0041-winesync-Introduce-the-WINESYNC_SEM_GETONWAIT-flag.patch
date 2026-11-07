@@ -1,0 +1,132 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zebediah Figura <z.figura12@gmail.com>
+Date: Fri, 5 Mar 2021 16:12:55 -0600
+Subject: [PATCH] winesync: Introduce the WINESYNC_SEM_GETONWAIT flag.
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ drivers/misc/winesync.c                             | 12 ++++++++++--
+ include/uapi/linux/winesync.h                       |  3 +++
+ tools/testing/selftests/drivers/winesync/winesync.c |  5 +++++
+ 3 files changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/misc/winesync.c b/drivers/misc/winesync.c
+index c28a45c979df4..8de31c3b4448c 100644
+--- a/drivers/misc/winesync.c
++++ b/drivers/misc/winesync.c
+@@ -62,6 +62,7 @@ struct winesync_obj {
+ 		struct {
+ 			__u32 count;
+ 			__u32 max;
++			__u32 flags;
+ 		} sem;
+ 		struct {
+ 			__u32 count;
+@@ -233,7 +234,8 @@ static void try_wake_all(struct winesync_device *dev, struct winesync_q *q,
+ 
+ 			switch (obj->type) {
+ 			case WINESYNC_TYPE_SEM:
+-				obj->u.sem.count--;
++				if (obj->u.sem.flags & WINESYNC_SEM_GETONWAIT)
++					obj->u.sem.count--;
+ 				break;
+ 			case WINESYNC_TYPE_MUTEX:
+ 				if (obj->u.mutex.ownerdead)
+@@ -278,7 +280,8 @@ static void try_wake_any_sem(struct winesync_obj *sem)
+ 			break;
+ 
+ 		if (atomic_cmpxchg(&q->signaled, -1, entry->index) == -1) {
+-			sem->u.sem.count--;
++			if (sem->u.sem.flags & WINESYNC_SEM_GETONWAIT)
++				sem->u.sem.count--;
+ 			wake_up_process(q->task);
+ 		}
+ 	}
+@@ -322,6 +325,9 @@ static int winesync_create_sem(struct winesync_device *dev, void __user *argp)
+ 	if (args.count > args.max)
+ 		return -EINVAL;
+ 
++	if (args.flags & ~WINESYNC_SEM_GETONWAIT)
++		return -EINVAL;
++
+ 	sem = kzalloc(sizeof(*sem), GFP_KERNEL);
+ 	if (!sem)
+ 		return -ENOMEM;
+@@ -330,6 +336,7 @@ static int winesync_create_sem(struct winesync_device *dev, void __user *argp)
+ 	sem->type = WINESYNC_TYPE_SEM;
+ 	sem->u.sem.count = args.count;
+ 	sem->u.sem.max = args.max;
++	sem->u.sem.flags = args.flags;
+ 
+ 	mutex_lock(&dev->table_lock);
+ 	ret = idr_alloc(&dev->objects, sem, 0, 0, GFP_KERNEL);
+@@ -554,6 +561,7 @@ static int winesync_read_sem(struct winesync_device *dev, void __user *argp)
+ 	spin_lock(&sem->lock);
+ 	args.count = sem->u.sem.count;
+ 	args.max = sem->u.sem.max;
++	args.flags = sem->u.sem.flags;
+ 	spin_unlock(&sem->lock);
+ 
+ 	put_obj(sem);
+diff --git a/include/uapi/linux/winesync.h b/include/uapi/linux/winesync.h
+index 1fdc8801845ff..8acf54e997ba5 100644
+--- a/include/uapi/linux/winesync.h
++++ b/include/uapi/linux/winesync.h
+@@ -10,10 +10,13 @@
+ 
+ #include <linux/types.h>
+ 
++#define WINESYNC_SEM_GETONWAIT 1
++
+ struct winesync_sem_args {
+ 	__u32 sem;
+ 	__u32 count;
+ 	__u32 max;
++	__u32 flags;
+ };
+ 
+ struct winesync_mutex_args {
+diff --git a/tools/testing/selftests/drivers/winesync/winesync.c b/tools/testing/selftests/drivers/winesync/winesync.c
+index d4a2ed9f5f221..97719feb625e5 100644
+--- a/tools/testing/selftests/drivers/winesync/winesync.c
++++ b/tools/testing/selftests/drivers/winesync/winesync.c
+@@ -29,6 +29,7 @@ TEST(semaphore_state)
+ 	sem_args.count = 3;
+ 	sem_args.max = 2;
+ 	sem_args.sem = 0xdeadbeef;
++	sem_args.flags = WINESYNC_SEM_GETONWAIT;
+ 	ret = ioctl(fd, WINESYNC_IOC_CREATE_SEM, &sem_args);
+ 	EXPECT_EQ(-1, ret);
+ 	EXPECT_EQ(EINVAL, errno);
+@@ -417,6 +418,7 @@ TEST(wait_any)
+ 	sem_args.count = 2;
+ 	sem_args.max = 3;
+ 	sem_args.sem = 0xdeadbeef;
++	sem_args.flags = WINESYNC_SEM_GETONWAIT;
+ 	ret = ioctl(fd, WINESYNC_IOC_CREATE_SEM, &sem_args);
+ 	EXPECT_EQ(0, ret);
+ 	EXPECT_NE(0xdeadbeef, sem_args.sem);
+@@ -614,6 +616,7 @@ TEST(wait_all)
+ 	sem_args.count = 2;
+ 	sem_args.max = 3;
+ 	sem_args.sem = 0xdeadbeef;
++	sem_args.flags = WINESYNC_SEM_GETONWAIT;
+ 	ret = ioctl(fd, WINESYNC_IOC_CREATE_SEM, &sem_args);
+ 	EXPECT_EQ(0, ret);
+ 	EXPECT_NE(0xdeadbeef, sem_args.sem);
+@@ -898,6 +901,7 @@ TEST(wake_any)
+ 	sem_args.count = 0;
+ 	sem_args.max = 3;
+ 	sem_args.sem = 0xdeadbeef;
++	sem_args.flags = WINESYNC_SEM_GETONWAIT;
+ 	ret = ioctl(fd, WINESYNC_IOC_CREATE_SEM, &sem_args);
+ 	EXPECT_EQ(0, ret);
+ 	EXPECT_NE(0xdeadbeef, sem_args.sem);
+@@ -1024,6 +1028,7 @@ TEST(wake_all)
+ 	sem_args.count = 0;
+ 	sem_args.max = 3;
+ 	sem_args.sem = 0xdeadbeef;
++	sem_args.flags = WINESYNC_SEM_GETONWAIT;
+ 	ret = ioctl(fd, WINESYNC_IOC_CREATE_SEM, &sem_args);
+ 	EXPECT_EQ(0, ret);
+ 	EXPECT_NE(0xdeadbeef, sem_args.sem);

@@ -1,0 +1,5 @@
+branch=rebase-5.10/steam-patches
+base=v5.10.47
+head=53ee04a65b6f7599742cdf17ab59919ac745a39e
+date=2021-07-07
+pr=10

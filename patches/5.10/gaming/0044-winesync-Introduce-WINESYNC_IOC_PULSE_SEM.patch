@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zebediah Figura <z.figura12@gmail.com>
+Date: Fri, 5 Mar 2021 17:21:26 -0600
+Subject: [PATCH] winesync: Introduce WINESYNC_IOC_PULSE_SEM.
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ drivers/misc/winesync.c       | 13 +++++++++++--
+ include/uapi/linux/winesync.h |  2 ++
+ 2 files changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/misc/winesync.c b/drivers/misc/winesync.c
+index d4779d09ab91d..a4c1dbc2a33eb 100644
+--- a/drivers/misc/winesync.c
++++ b/drivers/misc/winesync.c
+@@ -454,7 +454,8 @@ static int put_sem_state(struct winesync_obj *sem, __u32 count)
+ 	return 0;
+ }
+ 
+-static int winesync_put_sem(struct winesync_device *dev, void __user *argp)
++static int winesync_put_sem(struct winesync_device *dev, void __user *argp,
++			    bool pulse)
+ {
+ 	struct winesync_sem_args __user *user_args = argp;
+ 	struct winesync_sem_args args;
+@@ -484,6 +485,9 @@ static int winesync_put_sem(struct winesync_device *dev, void __user *argp)
+ 			try_wake_any_sem(sem);
+ 		}
+ 
++		if (pulse)
++			sem->u.sem.count = 0;
++
+ 		spin_unlock(&sem->lock);
+ 		spin_unlock(&dev->wait_all_lock);
+ 	} else {
+@@ -494,6 +498,9 @@ static int winesync_put_sem(struct winesync_device *dev, void __user *argp)
+ 		if (!ret)
+ 			try_wake_any_sem(sem);
+ 
++		if (pulse)
++			sem->u.sem.count = 0;
++
+ 		spin_unlock(&sem->lock);
+ 	}
+ 
+@@ -985,7 +992,9 @@ static long winesync_char_ioctl(struct file *file, unsigned int cmd,
+ 	case WINESYNC_IOC_GET_SEM:
+ 		return winesync_get_sem(dev, argp);
+ 	case WINESYNC_IOC_PUT_SEM:
+-		return winesync_put_sem(dev, argp);
++		return winesync_put_sem(dev, argp, false);
++	case WINESYNC_IOC_PULSE_SEM:
++		return winesync_put_sem(dev, argp, true);
+ 	case WINESYNC_IOC_PUT_MUTEX:
+ 		return winesync_put_mutex(dev, argp);
+ 	case WINESYNC_IOC_READ_SEM:
+diff --git a/include/uapi/linux/winesync.h b/include/uapi/linux/winesync.h
+index 96bceacb80912..c16f423dad48e 100644
+--- a/include/uapi/linux/winesync.h
++++ b/include/uapi/linux/winesync.h
+@@ -41,6 +41,8 @@ struct winesync_wait_args {
+ #define WINESYNC_IOC_CREATE_MUTEX	_IOWR(WINESYNC_IOC_BASE, 1, \
+ 					      struct winesync_mutex_args)
+ #define WINESYNC_IOC_GET_SEM		_IOW (WINESYNC_IOC_BASE, 2, __u32)
++#define WINESYNC_IOC_PULSE_SEM		_IOWR(WINESYNC_IOC_BASE, 3, \
++					      struct winesync_sem_args)
+ #define WINESYNC_IOC_PUT_SEM		_IOWR(WINESYNC_IOC_BASE, 5, \
+ 					      struct winesync_sem_args)
+ #define WINESYNC_IOC_PUT_MUTEX		_IOWR(WINESYNC_IOC_BASE, 6, \
