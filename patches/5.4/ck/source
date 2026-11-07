@@ -1,0 +1,5 @@
+branch=rebase-5.4/ck-patches
+base=v5.4.62
+head=77cb265bcc2605329e0777e0515236761abe1d4a
+date=2020-09-05
+pr=2

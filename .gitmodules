@@ -4,3 +4,9 @@
 	branch = rebase-5.4/steam-patches
 	shallow = true
 	pr = 1
+[submodule "ck"]
+	path = series/ck
+	url = https://github.com/kakra/linux.git
+	branch = rebase-5.4/ck-patches
+	shallow = true
+	pr = 2
