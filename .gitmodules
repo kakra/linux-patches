@@ -16,12 +16,6 @@
 	branch = rebase-6.12/pf-ksm
 	shallow = true
 	pr = 37
-[submodule "xpadneo"]
-	path = series/xpadneo
-	url = https://github.com/kakra/linux.git
-	branch = rebase-6.12/xpadneo
-	shallow = true
-	pr = 38
 [submodule "btrfs"]
 	path = series/btrfs
 	url = https://github.com/kakra/linux.git
