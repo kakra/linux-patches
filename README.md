@@ -32,6 +32,7 @@ which stable release, with which pull request.
 
 | Path | Content |
 |---|---|
+| `base/` | Submodule: branch `base-<version>` of [kakra/linux][fork], the stable release the series of a kernel series are tracked against |
 | `series/<name>/` | Submodule: branch `rebase-<version>/<branch>` of [kakra/linux][fork] |
 | `patches/<version>/<name>/` | The series exported from that branch, applicable with `git am` to its base tag |
 | `tools/` | Export, check and submodule helpers |
