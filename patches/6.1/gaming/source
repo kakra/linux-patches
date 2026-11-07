@@ -1,0 +1,5 @@
+branch=rebase-6.1/steam-patches
+base=v6.1.57
+head=5bc7728c20790bf602f1706f96ab1ec9a03f0c50
+date=2023-10-11
+pr=23

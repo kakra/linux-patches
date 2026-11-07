@@ -1,0 +1,25 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alexandre Frade <kernel@xanmod.org>
+Date: Mon, 3 Aug 2020 17:05:04 +0000
+Subject: [PATCH] mm: set 2 megabytes for address_space-level file read-ahead
+ pages size
+
+Signed-off-by: Alexandre Frade <kernel@xanmod.org>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ include/linux/pagemap.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/linux/pagemap.h b/include/linux/pagemap.h
+index bbccb40442224..2bba0123f8f9d 100644
+--- a/include/linux/pagemap.h
++++ b/include/linux/pagemap.h
+@@ -1181,7 +1181,7 @@ struct readahead_control {
+ 		._index = i,						\
+ 	}
+ 
+-#define VM_READAHEAD_PAGES	(SZ_128K / PAGE_SIZE)
++#define VM_READAHEAD_PAGES	(SZ_2M / PAGE_SIZE)
+ 
+ void page_cache_ra_unbounded(struct readahead_control *,
+ 		unsigned long nr_to_read, unsigned long lookahead_count);

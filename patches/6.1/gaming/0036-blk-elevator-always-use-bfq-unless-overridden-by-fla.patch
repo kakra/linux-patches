@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Juuso Alasuutari <juuso.alasuutari@gmail.com>
+Date: Sun, 7 Nov 2021 15:10:03 +0200
+Subject: [PATCH] blk: elevator: always use bfq unless overridden by flag
+
+Also add ifdefs so that elevator_get_default() remains unchanged with
+respect to upstream if CONFIG_IOSCHED_BFQ is disabled.
+
+Signed-off-by: Juuso Alasuutari <juuso.alasuutari@gmail.com>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ block/elevator.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/block/elevator.c b/block/elevator.c
+index bd71f0fc4e4b6..97466a2601129 100644
+--- a/block/elevator.c
++++ b/block/elevator.c
+@@ -630,19 +630,25 @@ static inline bool elv_support_iosched(struct request_queue *q)
+ }
+ 
+ /*
+- * For single queue devices, default to using mq-deadline. If we have multiple
+- * queues or mq-deadline is not available, default to "none".
++ * Always use bfq as our elevator if possible. If bfq is unavailable default
++ * to mq-deadline for single-queue and none for multi-queue devices.
+  */
+ static struct elevator_type *elevator_get_default(struct request_queue *q)
+ {
+ 	if (q->tag_set && q->tag_set->flags & BLK_MQ_F_NO_SCHED_BY_DEFAULT)
+ 		return NULL;
+ 
++#ifndef CONFIG_IOSCHED_BFQ
+ 	if (q->nr_hw_queues != 1 &&
+ 	    !blk_mq_is_shared_tags(q->tag_set->flags))
+ 		return NULL;
++#endif
+ 
++#if defined(CONFIG_IOSCHED_BFQ)
++	return elevator_get(q, "bfq", false);
++#else
+ 	return elevator_get(q, "mq-deadline", false);
++#endif
+ }
+ 
+ /*
