@@ -4,6 +4,40 @@ The series per kernel series, newest first. "Last change" is the commit
 date of the exported tip; the pull request dates show when the series
 was tracked.
 
+## 6.6
+
+| Series | Branch | Base | Patches | Last change | Pull request |
+|---|---|---|---|---|---|
+| [`bcache`](patches/6.6/bcache/) | `rebase-6.6/bcache-updates` | `v6.6` | 3 | 2023-11-19 | [#32][pr-32], 2023-11-26 to 2024-11-23 |
+| [`btrfs`](patches/6.6/btrfs/) | `rebase-6.6/btrfs-patches` | `v6.6.50` | 5 | 2024-09-09 | [#31][pr-31], 2023-11-26 to 2024-11-23 |
+| [`cltweaks`](patches/6.6/cltweaks/) | `rebase-6.6/clearlinux-tweaks` | `v6.6` | 40 | 2023-11-19 | [#28][pr-28], 2023-11-26 to 2024-11-23 |
+| [`gaming`](patches/6.6/gaming/) | `rebase-6.6/steam-patches` | `v6.6.44` | 57 | 2024-08-04 | [#30][pr-30], 2023-11-26 to 2024-11-23 |
+| [`pf-ksm`](patches/6.6/pf-ksm/) | `rebase-6.6/pf-ksm` | `v6.6` | 1 | 2023-10-30 | [#27][pr-27], 2023-11-26 to 2024-11-23 |
+| [`xpadneo`](patches/6.6/xpadneo/) | `rebase-6.6/xpadneo` | `v6.6` | 6 | 2023-11-20 | [#29][pr-29], 2023-11-26 to 2024-11-23 |
+
+Base: `base-6.6` at `v6.6.50`, pinned as `base/`.
+
+- `bcache`: back, with the same three patches as in 5.15.
+- `gaming`: switches from CFS tuning to EEVDF and takes the ZEN
+  `INTERACTIVE` patches with their config option (mgLRU cache protection,
+  compaction and watermark boost defaults, BFQ for single queue and Kyber
+  for multi queue devices). Drops the 2 MB read-ahead, which seemed to
+  cause freezes and memory fragmentation after periods of high memory and
+  IO load. Based on 6.6.44.
+- `pf-ksm`: one patch that exposes per-process KSM control through system
+  calls.
+- `cltweaks`: grows to 40 patches with the newer Clear Linux set (idle
+  balance, EPP retune, timer slack, boot time measurements).
+- `btrfs`: adds an allocator hint that prefers no new allocations on a
+  device (type 4), to drain a device before removing it. Based on 6.6.50.
+
+[pr-32]: https://github.com/kakra/linux/pull/32
+[pr-31]: https://github.com/kakra/linux/pull/31
+[pr-28]: https://github.com/kakra/linux/pull/28
+[pr-30]: https://github.com/kakra/linux/pull/30
+[pr-27]: https://github.com/kakra/linux/pull/27
+[pr-29]: https://github.com/kakra/linux/pull/29
+
 ## 6.1
 
 | Series | Branch | Base | Patches | Last change | Pull request |
