@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: torvic9 <torvic9@users.noreply.github.com>
+Date: Mon, 18 Jan 2021 08:22:41 +0000
+Subject: [PATCH] Update Kconfig
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ drivers/cpufreq/Kconfig | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/cpufreq/Kconfig b/drivers/cpufreq/Kconfig
+index 85de313ddec29..7a50bbab1562b 100644
+--- a/drivers/cpufreq/Kconfig
++++ b/drivers/cpufreq/Kconfig
+@@ -40,6 +40,7 @@ choice
+ 	default CPU_FREQ_DEFAULT_GOV_SCHEDUTIL if ARM64 || ARM
+ 	default CPU_FREQ_DEFAULT_GOV_SCHEDUTIL if X86_INTEL_PSTATE && SMP
+ 	default CPU_FREQ_DEFAULT_GOV_PERFORMANCE
++	default CPU_FREQ_DEFAULT_GOV_ONDEMAND if SCHED_MUQSS && !(X86_INTEL_PSTATE)
+ 	help
+ 	  This option sets which CPUFreq governor shall be loaded at
+ 	  startup. If in doubt, use the default setting.
+@@ -71,7 +72,7 @@ config CPU_FREQ_DEFAULT_GOV_USERSPACE
+ 
+ config CPU_FREQ_DEFAULT_GOV_ONDEMAND
+ 	bool "ondemand"
+-	depends on !(X86_INTEL_PSTATE && SMP)
++	depends on SCHED_MUQSS && !(X86_INTEL_PSTATE && SMP)
+ 	select CPU_FREQ_GOV_ONDEMAND
+ 	select CPU_FREQ_GOV_PERFORMANCE
+ 	help
+@@ -146,6 +147,7 @@ config CPU_FREQ_GOV_USERSPACE
+ 
+ config CPU_FREQ_GOV_ONDEMAND
+ 	tristate "'ondemand' cpufreq policy governor"
++	default y if SCHED_MUQSS
+ 	select CPU_FREQ_GOV_COMMON
+ 	help
+ 	  'ondemand' - This driver adds a dynamic cpufreq policy governor.
