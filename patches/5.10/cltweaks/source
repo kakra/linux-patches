@@ -1,0 +1,5 @@
+branch=rebase-5.10/clearlinux-tweaks
+base=v5.10.52
+head=9a7fd57e5a8e7861b830d2d8e30dc90cb6ba4702
+date=2021-07-21
+pr=9
