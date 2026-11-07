@@ -4,6 +4,36 @@ The series per kernel series, newest first. "Last change" is the commit
 date of the exported tip; the pull request dates show when the series
 was tracked.
 
+## 6.1
+
+| Series | Branch | Base | Patches | Last change | Pull request |
+|---|---|---|---|---|---|
+| [`btrfs`](patches/6.1/btrfs/) | `rebase-6.1/btrfs-patches` | `v6.1` | 4 | 2022-12-18 | [#26][pr-26], 2023-03-11 to 2023-11-26 |
+| [`cltweaks`](patches/6.1/cltweaks/) | `rebase-6.1/clearlinux-tweaks` | `v6.1` | 30 | 2023-01-19 | [#24][pr-24], 2023-03-11 to 2023-11-26 |
+| [`gaming`](patches/6.1/gaming/) | `rebase-6.1/steam-patches` | `v6.1.57` | 48 | 2023-10-11 | [#23][pr-23], 2023-03-11 to 2023-11-26 |
+| [`pf-ksm`](patches/6.1/pf-ksm/) | `rebase-6.1/pf-ksm` | `v6.1` | 5 | 2022-12-11 | [#25][pr-25], 2023-03-11 to 2023-11-26 |
+| [`xpadneo`](patches/6.1/xpadneo/) | `rebase-6.1/xpadneo` | `v6.1` | 6 | 2022-12-27 | [#22][pr-22], 2023-03-11 to 2023-11-26 |
+
+Base: `base-6.1` at `v6.1.57`, pinned as `base/`.
+
+- `bcache`: there is no 6.1 series. The 5.15 series doesn't apply to
+  `v6.1` (the sysfs hint patch conflicts), so it is dropped here and comes
+  back with 6.6.
+- `gaming`: adds lower latency CFS tuning, ZEN memory management patches
+  (rmqueue_bulk, pageblock size), 2 MB file read-ahead, a raised
+  `vm.max_map_count`, the ACS override patch, and an entry point for
+  `FUTEX_WAIT_MULTIPLE` on top of `futex_waitv()` for older Proton
+  versions. Based on 6.1.57.
+- `pf-ksm`: post-factum's KSM interface changes from remote merge to the
+  `pmadv_ksm()` system call.
+- `xpadneo`: xpadneo v0.9.5.
+
+[pr-26]: https://github.com/kakra/linux/pull/26
+[pr-24]: https://github.com/kakra/linux/pull/24
+[pr-23]: https://github.com/kakra/linux/pull/23
+[pr-25]: https://github.com/kakra/linux/pull/25
+[pr-22]: https://github.com/kakra/linux/pull/22
+
 ## 5.15
 
 | Series | Branch | Base | Patches | Last change | Pull request |
