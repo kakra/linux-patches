@@ -34,3 +34,8 @@
 	branch = rebase-5.10/xpadneo
 	shallow = true
 	pr = 11
+[submodule "base"]
+	path = base
+	url = https://github.com/kakra/linux.git
+	branch = base-5.15
+	shallow = true
