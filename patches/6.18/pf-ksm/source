@@ -1,0 +1,5 @@
+branch=rebase-6.18/pf-ksm
+base=v6.18
+head=e8020af2f7f55808b3fc4cba492dd72f0b84ed96
+date=2025-12-14
+pr=42

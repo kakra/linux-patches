@@ -13,9 +13,9 @@
 [submodule "pf-ksm"]
 	path = series/pf-ksm
 	url = https://github.com/kakra/linux.git
-	branch = rebase-6.12/pf-ksm
+	branch = rebase-6.18/pf-ksm
 	shallow = true
-	pr = 37
+	pr = 42
 [submodule "btrfs"]
 	path = series/btrfs
 	url = https://github.com/kakra/linux.git
