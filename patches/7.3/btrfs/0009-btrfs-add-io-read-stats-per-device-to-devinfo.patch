@@ -1,0 +1,171 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Sat, 11 Jul 2026 00:44:51 +0200
+Subject: [PATCH] btrfs: add io read stats per device to devinfo
+
+This adds read stats per device to devinfo to evaluate the effects of
+different read policies better.
+
+This adds a new file /sys/fs/btrfs/BTRFS-UUID/devinfo/ID/read_stats.
+
+v2:
+- Guard part_stat_read() behind device->bdev to fix a NULL-pointer
+  dereference when reading a missing mirror's stats on a degraded
+  array.
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/Kconfig   | 12 ++++++++++++
+ fs/btrfs/sysfs.c   | 29 +++++++++++++++++++++++++++++
+ fs/btrfs/volumes.c | 30 +++++++++++++++++++++++++++---
+ fs/btrfs/volumes.h |  8 ++++++++
+ 4 files changed, 76 insertions(+), 3 deletions(-)
+
+diff --git a/fs/btrfs/Kconfig b/fs/btrfs/Kconfig
+index 21b4694ce9878..104ce11309b19 100644
+--- a/fs/btrfs/Kconfig
++++ b/fs/btrfs/Kconfig
+@@ -136,6 +136,18 @@ config BTRFS_ALLOCATOR_HINTS
+ 
+ 	  If unsure, say N.
+ 
++config BTRFS_PER_DEVICE_IO_STATS
++	bool "Btrfs per io devices stats"
++	depends on BTRFS_FS
++	default n
++	help
++	  Enable collecting io read stats per devices to evaluate the effects
++	  of different read policies better.
++
++	  This adds a new file /sys/fs/btrfs/BTRFS-UUID/devinfo/ID/read_stats.
++
++	  If unsure, say N.
++
+ config BTRFS_EXPERIMENTAL
+ 	bool "Btrfs experimental features"
+ 	depends on BTRFS_FS
+diff --git a/fs/btrfs/sysfs.c b/fs/btrfs/sysfs.c
+index 1c56220b86d93..d598367c45ebc 100644
+--- a/fs/btrfs/sysfs.c
++++ b/fs/btrfs/sysfs.c
+@@ -26,6 +26,10 @@
+ #include "fs.h"
+ #include "accessors.h"
+ 
++#ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
++#include <linux/part_stat.h>
++#endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
++
+ /*
+  * Structure name                       Path
+  * --------------------------------------------------------------------------
+@@ -2191,12 +2195,37 @@ static ssize_t btrfs_devinfo_type_store(struct kobject *kobj,
+ BTRFS_ATTR_RW(devid, type, btrfs_devinfo_type_show, btrfs_devinfo_type_store);
+ #endif /* CONFIG_BTRFS_ALLOCATOR_HINTS */
+ 
++#ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
++static ssize_t btrfs_devinfo_read_stats_show(struct kobject *kobj,
++					     struct kobj_attribute *a, char *buf)
++{
++	struct btrfs_device *device = container_of(kobj, struct btrfs_device,
++						   devid_kobj);
++	u64 read_wait = device->bdev ? part_stat_read(device->bdev, nsecs[READ]) : 0;
++	unsigned long read_ios = device->bdev ?
++		part_stat_read(device->bdev, ios[READ]) : 0;
++
++	u64 avg_wait = 0;
++	if (read_wait && read_ios && read_wait >= read_ios)
++		avg_wait = div_u64(read_wait, read_ios);
++
++	return scnprintf(buf, PAGE_SIZE, "ios %lu wait %llu avg %llu age %llu ignored %llu\n",
++			 read_ios, read_wait, avg_wait,
++			 (u64)atomic64_read(&device->last_io_age),
++			 (u64)atomic64_read(&device->stripe_ignored));
++}
++BTRFS_ATTR(devid, read_stats, btrfs_devinfo_read_stats_show);
++#endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
++
+ /*
+  * Information about one device.
+  *
+  * Path: /sys/fs/btrfs/<uuid>/devinfo/<devid>/
+  */
+ static struct attribute *devid_attrs[] = {
++#ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
++	BTRFS_ATTR_PTR(devid, read_stats),
++#endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
+ 	BTRFS_ATTR_PTR(devid, error_stats),
+ 	BTRFS_ATTR_PTR(devid, fsid),
+ 	BTRFS_ATTR_PTR(devid, in_fs_metadata),
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index 56f36eb28ccd0..c645ecc31cfe3 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -6754,6 +6754,15 @@ static int find_live_mirror(struct btrfs_fs_info *fs_info,
+ 	else
+ 		num_stripes = map->num_stripes;
+ 
++#ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
++	/* age each possible stripe by 1 IO */
++	for (int i = first; i < first + num_stripes; i++) {
++		struct btrfs_device *device = map->stripes[i].dev;
++		atomic64_inc(&device->last_io_age);
++		atomic64_inc(&device->stripe_ignored);
++	}
++#endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
++
+ 	switch (policy) {
+ 	default:
+ 		/* Shouldn't happen, just warn and use pid instead of failing */
+@@ -6789,14 +6798,29 @@ static int find_live_mirror(struct btrfs_fs_info *fs_info,
+ 	for (tolerance = 0; tolerance < 2; tolerance++) {
+ 		if (map->stripes[preferred_mirror].dev->bdev &&
+ 		    (tolerance || map->stripes[preferred_mirror].dev != srcdev))
+-			return preferred_mirror;
++			goto out;
+ 		for (i = first; i < first + num_stripes; i++) {
+ 			if (map->stripes[i].dev->bdev &&
+-			    (tolerance || map->stripes[i].dev != srcdev))
+-				return i;
++			    (tolerance || map->stripes[i].dev != srcdev)) {
++				preferred_mirror = i;
++				goto out;
++			}
+ 		}
+ 	}
+ 
++out:
++#ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
++	do {
++		struct btrfs_device *preferred_device = map->stripes[preferred_mirror].dev;
++
++		/* reset age of selected stripe */
++		atomic64_set(&preferred_device->last_io_age, 0);
++
++		/* do not count ignores for the selected stripe */
++		atomic64_dec(&preferred_device->stripe_ignored);
++	} while (0);
++#endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
++
+ 	/* we couldn't find one that doesn't fail.  Just return something
+ 	 * and the io error handling code will clean up eventually
+ 	 */
+diff --git a/fs/btrfs/volumes.h b/fs/btrfs/volumes.h
+index 457b502fb1df0..b4ba8fac1fadd 100644
+--- a/fs/btrfs/volumes.h
++++ b/fs/btrfs/volumes.h
+@@ -220,6 +220,14 @@ struct btrfs_device {
+ 	 * available space calculation.
+ 	 */
+ 	u64 per_profile_allocated;
++
++#ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
++	/* store an age of last read access */
++	atomic64_t last_io_age;
++
++	/* store how often a stripe has been ignored as a read candidate */
++	atomic64_t stripe_ignored;
++#endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
+ };
+ 
+ /*

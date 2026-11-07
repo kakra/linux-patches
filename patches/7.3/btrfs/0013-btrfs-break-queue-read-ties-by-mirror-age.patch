@@ -1,0 +1,81 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Thu, 9 Jul 2026 12:27:18 +0200
+Subject: [PATCH] btrfs: break queue read ties by mirror age
+
+There's an unfair bias towards the first device in the pool of
+candidate devices for queue-based read balancing: If two candidates are
+mostly idle or share the same amount of inflight requests, the first
+candidate always wins, no matter the history.
+
+The age counter already provides history: Use the age counter to select
+the device which has recently been ignored among the candidates if
+there's a tie break on inflight IO requests. This distributes read
+requests more evenly across all devices.
+
+As part of this, a device with bad latency can be selected more often
+now if it is last in the pool, or less often, if it is first in the
+pool. This will be addressed by a later commit by adapting latency
+history into the decision.
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/volumes.c | 26 +++++++++++++++++++++++---
+ 1 file changed, 23 insertions(+), 3 deletions(-)
+
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index 668e7b9c106c2..98b16495d8965 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -6685,28 +6685,48 @@ static unsigned int part_in_flight(struct block_device *part)
+ 	return inflight;
+ }
+ 
++static bool btrfs_queue_read_candidate_better(u64 in_flight, u64 last_io_age,
++					      u64 best_in_flight,
++					      u64 best_last_io_age)
++{
++	if (in_flight < best_in_flight)
++		return true;
++
++	if (in_flight == best_in_flight && last_io_age > best_last_io_age)
++		return true;
++
++	return false;
++}
++
+ /*
+  * btrfs_earliest_stripe
+  *
+- * Select a stripe from the device with shortest in-flight requests.
++ * Select a stripe from the device with shortest in-flight requests. If several
++ * stripes have the same queue depth, prefer the stripe that has gone the
++ * longest without being selected.
+  */
+ static int btrfs_read_earliest(struct btrfs_fs_info *fs_info,
+ 			       struct btrfs_chunk_map *map, int first,
+-	int num_stripes)
++			       int num_stripes)
+ {
+ 	u64 best_in_flight = U64_MAX;
++	u64 best_last_io_age = 0;
+ 	int best_stripe = first;
+ 
+ 	for (int index = first; index < first + num_stripes; index++) {
+ 		struct btrfs_device *device = map->stripes[index].dev;
+ 		u64 in_flight;
++		u64 last_io_age = atomic64_read(&device->last_io_age);
+ 
+ 		if (!device->bdev)
+ 			continue;
+ 
+ 		in_flight = part_in_flight(device->bdev);
+-		if (best_in_flight > in_flight) {
++		if (btrfs_queue_read_candidate_better(in_flight, last_io_age,
++						      best_in_flight,
++						      best_last_io_age)) {
+ 			best_in_flight = in_flight;
++			best_last_io_age = last_io_age;
+ 			best_stripe = index;
+ 		}
+ 	}

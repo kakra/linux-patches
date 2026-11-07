@@ -1,0 +1,136 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Sat, 11 Jul 2026 00:25:21 +0200
+Subject: [PATCH] btrfs: change the DEV_ITEM 'type' field via sysfs
+
+Known limitations:
+
+- Device replace does not copy the allocation hint to the target
+  device. Users must reapply it after replacement.
+- The sysfs update is not serialized with chunk allocation through
+  chunk_mutex, so an allocation concurrent with an update may observe
+  either value.
+
+A future revision should replace the type field with dedicated
+transactional structures. Transactions should not be triggered directly
+from sysfs writes, see:
+
+https://lore.kernel.org/linux-btrfs/20251213200920.1808679-1-kai@kaishome.de/
+
+v2:
+- Adds a check to prevent modification while the file system is still
+  mounting.
+
+v3:
+- Accept only valid allocation hint types
+
+v4:
+- Document the device replace and chunk allocation synchronization
+  limitations of the current type-based interface.
+
+Link: https://github.com/kakra/linux/pull/36#issuecomment-3406301805
+Reported-by: Eli Venter <eli@genedx.com>
+Co-authored-by: Goffredo Baroncelli <kreijack@inwind.it>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/sysfs.c | 80 +++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 79 insertions(+), 1 deletion(-)
+
+diff --git a/fs/btrfs/sysfs.c b/fs/btrfs/sysfs.c
+index fdd191b1fecd5..d22d563e6ead8 100644
+--- a/fs/btrfs/sysfs.c
++++ b/fs/btrfs/sysfs.c
+@@ -2100,6 +2100,22 @@ static ssize_t btrfs_devinfo_error_stats_show(struct kobject *kobj,
+ BTRFS_ATTR(devid, error_stats, btrfs_devinfo_error_stats_show);
+ 
+ #ifdef CONFIG_BTRFS_ALLOCATOR_HINTS
++static bool btrfs_dev_allocation_hint_valid(u64 type)
++{
++	if (type & ~((1ULL << BTRFS_DEV_ALLOCATION_MASK_BIT_COUNT) - 1))
++		return false;
++
++	switch (type) {
++	case BTRFS_DEV_ALLOCATION_PREFERRED_DATA:
++	case BTRFS_DEV_ALLOCATION_PREFERRED_METADATA:
++	case BTRFS_DEV_ALLOCATION_METADATA_ONLY:
++	case BTRFS_DEV_ALLOCATION_DATA_ONLY:
++		return true;
++	default:
++		return false;
++	}
++}
++
+ static ssize_t btrfs_devinfo_type_show(struct kobject *kobj,
+ 				       struct kobj_attribute *a, char *buf)
+ {
+@@ -2108,7 +2124,69 @@ static ssize_t btrfs_devinfo_type_show(struct kobject *kobj,
+ 
+ 	return scnprintf(buf, PAGE_SIZE, "0x%016llx\n", device->type);
+ }
+-BTRFS_ATTR(devid, type, btrfs_devinfo_type_show);
++
++static ssize_t btrfs_devinfo_type_store(struct kobject *kobj,
++					struct kobj_attribute *a,
++					const char *buf, size_t len)
++{
++	struct btrfs_fs_info *fs_info;
++	struct btrfs_root *root;
++	struct btrfs_device *device;
++	int ret;
++	struct btrfs_trans_handle *trans;
++
++	u64 type, prev_type;
++
++	device = container_of(kobj, struct btrfs_device, devid_kobj);
++	fs_info = device->fs_info;
++	if (!fs_info)
++		return -EPERM;
++
++	/*
++	 * Changing the type field requires starting a transaction which will cause a NULL dereference in
++	 * __reserve_bytes if the file system is not fully open. Thus, return EBUSY if the file system is not fully
++	 * initialized.
++	 */
++	if (!test_bit(BTRFS_FS_OPEN, &fs_info->flags))
++		return -EBUSY;
++
++	root = fs_info->chunk_root;
++	if (sb_rdonly(fs_info->sb))
++		return -EROFS;
++
++	ret = kstrtou64(buf, 0, &type);
++	if (ret < 0)
++		return -EINVAL;
++
++	/* for now, only allow defined allocation hint values */
++	if (!btrfs_dev_allocation_hint_valid(type))
++		return -EINVAL;
++
++	trans = btrfs_start_transaction(root, 1);
++	if (IS_ERR(trans))
++		return PTR_ERR(trans);
++
++	prev_type = device->type;
++	device->type = type;
++
++	ret = btrfs_update_device(trans, device);
++
++	if (ret < 0) {
++		btrfs_abort_transaction(trans, ret);
++		btrfs_end_transaction(trans);
++		goto abort;
++	}
++
++	ret = btrfs_commit_transaction(trans);
++	if (ret < 0)
++		goto abort;
++
++	return len;
++abort:
++	device->type = prev_type;
++	return ret;
++}
++BTRFS_ATTR_RW(devid, type, btrfs_devinfo_type_show, btrfs_devinfo_type_store);
+ #endif /* CONFIG_BTRFS_ALLOCATOR_HINTS */
+ 
+ /*

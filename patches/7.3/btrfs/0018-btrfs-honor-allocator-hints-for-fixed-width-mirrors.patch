@@ -1,0 +1,68 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: KeinNiemand <18308201+KeinNiemand@users.noreply.github.com>
+Date: Sun, 30 Aug 2026 14:50:54 +0200
+Subject: [PATCH] btrfs: honor allocator hints for fixed-width mirrors
+
+gather_device_info() admits complete allocation-hint groups until it
+has at least devs_min devices. It then clears the hints and sorts the
+admitted devices globally by max_avail. For a fixed-width mirrored
+profile, that second sort can move preferred devices past the later
+devs_max cutoff.
+
+RAID1, RAID1C3 and RAID1C4 currently use exactly devs_min devices.
+Limit the hint-ordered prefix to that fixed count before clearing the
+hints. Devices within each hint group are already ordered by max_avail,
+so this keeps the best devices needed from the final group.
+The existing second sort then restores the max_avail ordering expected
+by stripe-size calculation over the selected devices only.
+
+Check that devs_min and devs_max match instead of relying on the
+current RAID1 profile definitions implicitly. If a future RAID1 profile
+becomes variable-width, it will retain the existing whole-group
+behavior.
+
+Leave all other profiles unchanged, in particular the wide striped
+profiles that need the complete final candidate group.
+
+A preferred device remains eligible while it has at least
+dev_extent_min free. It can therefore constrain stripe_size and produce
+a small block group. This behavior already exists when the preferred
+tier alone satisfies the profile; this change intentionally extends it
+to fixed-width mirrors assembled from multiple hint tiers.
+
+v2:
+- Document the possible chunk-size constraint from a nearly full
+  preferred device.
+
+Assisted-by: Codex:GPT-5
+Assisted-by: Codex:gpt-5.6-sol
+Signed-off-by: KeinNiemand <18308201+KeinNiemand@users.noreply.github.com>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/volumes.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index 14bea7d037c3d..291dc31ff306b 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -6030,6 +6030,19 @@ static int gather_device_info(struct btrfs_fs_devices *fs_devices,
+ 			break;
+ 	}
+ 
++	/*
++	 * Fixed-width mirrored profiles consume only the first devs_max
++	 * candidates. Keep the highest-priority devices and only as many of
++	 * the final hint group as needed. The sort below then restores the
++	 * max_avail ordering required by the stripe-size calculation.
++	 *
++	 * Check the fixed-width property explicitly so a future variable-width
++	 * RAID1 profile retains the existing whole-group behavior.
++	 */
++	if ((ctl->type & BTRFS_BLOCK_GROUP_RAID1_MASK) &&
++	    ctl->devs_min == ctl->devs_max)
++		ndevs = min(ndevs, ctl->devs_max);
++
+ 	BUG_ON(ndevs > ctl->ndevs);
+ 	ctl->ndevs = ndevs;
+ 

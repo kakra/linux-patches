@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Sat, 11 Jul 2026 00:51:17 +0200
+Subject: [PATCH] btrfs: add flags to give a hint to the chunk allocator
+
+Add the following flags to give a hint about which chunk should be
+allocated on which a disk.
+
+The following flags are created:
+
+- BTRFS_DEV_ALLOCATION_PREFERRED_DATA
+  preferred data chunk, but metadata chunk allowed
+- BTRFS_DEV_ALLOCATION_PREFERRED_METADATA
+  preferred metadata chunk, but data chunk allowed
+- BTRFS_DEV_ALLOCATION_METADATA_ONLY
+  only metadata chunk allowed
+- BTRFS_DEV_ALLOCATION_DATA_ONLY
+  only data chunk allowed
+
+Co-authored-by: Goffredo Baroncelli <kreijack@inwind.it>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ include/uapi/linux/btrfs_tree.h | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
+
+diff --git a/include/uapi/linux/btrfs_tree.h b/include/uapi/linux/btrfs_tree.h
+index cc3b9f7dccafa..d48aa6112ef92 100644
+--- a/include/uapi/linux/btrfs_tree.h
++++ b/include/uapi/linux/btrfs_tree.h
+@@ -585,6 +585,27 @@ struct btrfs_node {
+ 	struct btrfs_key_ptr ptrs[];
+ } __attribute__ ((__packed__));
+ 
++/*
++ * This defines the chunk allocation hints for a device. It uses an ifdef guard
++ * in UAPI to avoid exposing it to userspace.
++ */
++#ifdef CONFIG_BTRFS_ALLOCATOR_HINTS
++/* dev_item.type */
++
++/* btrfs chunk allocation hints */
++#define BTRFS_DEV_ALLOCATION_MASK_BIT_COUNT	3
++/* preferred data chunk, but metadata chunk allowed */
++#define BTRFS_DEV_ALLOCATION_PREFERRED_DATA	(0ULL)
++/* preferred metadata chunk, but data chunk allowed */
++#define BTRFS_DEV_ALLOCATION_PREFERRED_METADATA	(1ULL)
++/* only metadata chunk allowed */
++#define BTRFS_DEV_ALLOCATION_METADATA_ONLY	(2ULL)
++/* only data chunk allowed */
++#define BTRFS_DEV_ALLOCATION_DATA_ONLY		(3ULL)
++/* 5..7 are unused values */
++
++#endif /* CONFIG_BTRFS_ALLOCATOR_HINTS */
++
+ struct btrfs_dev_item {
+ 	/* the internal btrfs device id */
+ 	__le64 devid;
