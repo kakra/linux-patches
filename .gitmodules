@@ -7,9 +7,9 @@
 [submodule "cltweaks"]
 	path = series/cltweaks
 	url = https://github.com/kakra/linux.git
-	branch = rebase-5.10/clearlinux-tweaks
+	branch = rebase-5.15/clearlinux-tweaks
 	shallow = true
-	pr = 9
+	pr = 17
 [submodule "bcache"]
 	path = series/bcache
 	url = https://github.com/kakra/linux.git
