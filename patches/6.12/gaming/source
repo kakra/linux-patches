@@ -1,0 +1,5 @@
+branch=rebase-6.12/gaming-patches
+base=v6.12.31
+head=5f3b5c8ea9fb04955ebc91712e48ad14e3751444
+date=2025-10-05
+pr=33

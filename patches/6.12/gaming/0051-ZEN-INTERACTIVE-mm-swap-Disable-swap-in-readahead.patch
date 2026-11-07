@@ -1,0 +1,55 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Steven Barrett <steven@liquorix.net>
+Date: Mon, 5 Sep 2022 11:35:20 -0500
+Subject: [PATCH] ZEN: INTERACTIVE: mm/swap: Disable swap-in readahead
+
+Per an [issue][1] on the chromium project, swap-in readahead causes more
+jank than not.  This might be caused by poor optimization on the
+swapping code, or the fact under memory pressure, we're pulling in pages
+we don't need, causing more swapping.
+
+Either way, this is mainline/upstream to Chromium, and ChromeOS
+developers care a lot about system responsiveness. Lets implement the
+same change so Zen Kernel users benefit.
+
+[1]: https://bugs.chromium.org/p/chromium/issues/detail?id=263561
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ init/Kconfig | 1 +
+ mm/swap.c    | 5 +++++
+ 2 files changed, 6 insertions(+)
+
+diff --git a/init/Kconfig b/init/Kconfig
+index 1c707c0204399..b7b6702b43ee4 100644
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -181,6 +181,7 @@ config ZEN_INTERACTIVE
+ 	    Compact unevictable............:   yes  ->   no
+ 	    Watermark boost factor.........:   1.5  ->   0
+ 	    Pageblock order................:  10    ->   3
++	    Swap-in readahead..............:   3    ->   0
+ 
+ 	  --- EEVDF CPU Scheduler --------------------------------
+ 
+diff --git a/mm/swap.c b/mm/swap.c
+index 59f30a981c6f9..bbe49ea7b80ed 100644
+--- a/mm/swap.c
++++ b/mm/swap.c
+@@ -1080,6 +1080,10 @@ void folio_batch_remove_exceptionals(struct folio_batch *fbatch)
+  */
+ void __init swap_setup(void)
+ {
++#ifdef CONFIG_ZEN_INTERACTIVE
++	/* Only swap-in pages requested, avoid readahead */
++	page_cluster = 0;
++#else
+ 	unsigned long megs = totalram_pages() >> (20 - PAGE_SHIFT);
+ 
+ 	/* Use a smaller cluster for small-memory machines */
+@@ -1091,4 +1095,5 @@ void __init swap_setup(void)
+ 	 * Right now other parts of the system means that we
+ 	 * _really_ don't want to cluster much more
+ 	 */
++#endif
+ }
