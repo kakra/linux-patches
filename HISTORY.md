@@ -8,10 +8,10 @@ was tracked.
 
 | Series | Branch | Base | Patches | Last change | Pull request |
 |---|---|---|---|---|---|
-| [`bcache`](patches/7.3/bcache/) | `rebase-7.3/bcache-updates` | `v7.3` | 4 | 2026-11-06 | not opened yet |
-| [`btrfs`](patches/7.3/btrfs/) | `rebase-7.3/btrfs-patches` | `v7.3` | 18 | 2026-11-07 | not opened yet |
-| [`gaming`](patches/7.3/gaming/) | `rebase-7.3/gaming-patches` | `v7.3` | 16 | 2026-11-07 | not opened yet |
-| [`platform`](patches/7.3/platform/) | `rebase-7.3/platform` | `v7.3` | 24 | 2026-11-07 | not opened yet |
+| [`bcache`](patches/7.3/bcache/) | `rebase-7.3/bcache-updates` | `v7.3` | 4 | 2026-11-06 | [#46][pr-46], 2026-11-07 to open |
+| [`btrfs`](patches/7.3/btrfs/) | `rebase-7.3/btrfs-patches` | `v7.3` | 18 | 2026-11-07 | [#47][pr-47], 2026-11-07 to open |
+| [`gaming`](patches/7.3/gaming/) | `rebase-7.3/gaming-patches` | `v7.3` | 16 | 2026-11-07 | [#49][pr-49], 2026-11-07 to open |
+| [`platform`](patches/7.3/platform/) | `rebase-7.3/platform` | `v7.3` | 24 | 2026-11-07 | [#48][pr-48], 2026-11-07 to open |
 
 Base: `base-7.3` at `v7.3`, pinned as `base/`.
 
@@ -35,6 +35,11 @@ repository (`tools/ci-build.sh`, GitHub workflow).
   workflow commit moved into this repository.
 - `cltweaks`, `memory`, `pf-ksm` are given up as series; their patches
   that stay moved to `platform` and `gaming`.
+
+[pr-46]: https://github.com/kakra/linux/pull/46
+[pr-47]: https://github.com/kakra/linux/pull/47
+[pr-48]: https://github.com/kakra/linux/pull/48
+[pr-49]: https://github.com/kakra/linux/pull/49
 
 ## 6.18
 

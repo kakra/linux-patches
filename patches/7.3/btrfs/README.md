@@ -7,6 +7,8 @@ Do not edit; change the branch and re-export.
 Apply with `git am patches/7.3/btrfs/*.patch` on `v7.3` or a later
 7.3 stable release.
 
+Discussion: [kakra/linux PR 47](https://github.com/kakra/linux/pull/47)
+
 | # | Patch | Author |
 |---|---|---|
 | 1 | [btrfs: avoid RCU stall during backref list construction](0001-btrfs-avoid-RCU-stall-during-backref-list-constructi.patch) | Kai Krakow |

@@ -7,6 +7,8 @@ Do not edit; change the branch and re-export.
 Apply with `git am patches/7.3/gaming/*.patch` on `v7.3` or a later
 7.3 stable release.
 
+Discussion: [kakra/linux PR 49](https://github.com/kakra/linux/pull/49)
+
 | # | Patch | Author |
 |---|---|---|
 | 1 | [ZEN: INTERACTIVE: Base config item](0001-ZEN-INTERACTIVE-Base-config-item.patch) | Jan Alexander Steffens (heftig) |

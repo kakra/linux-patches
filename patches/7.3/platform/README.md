@@ -7,6 +7,8 @@ Do not edit; change the branch and re-export.
 Apply with `git am patches/7.3/platform/*.patch` on `v7.3` or a later
 7.3 stable release.
 
+Discussion: [kakra/linux PR 48](https://github.com/kakra/linux/pull/48)
+
 | # | Patch | Author |
 |---|---|---|
 | 1 | [mm: expose per-process KSM control via syscalls](0001-mm-expose-per-process-KSM-control-via-syscalls.patch) | Kai Krakow |

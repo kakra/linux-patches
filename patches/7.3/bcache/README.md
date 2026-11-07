@@ -7,6 +7,8 @@ Do not edit; change the branch and re-export.
 Apply with `git am patches/7.3/bcache/*.patch` on `v7.3` or a later
 7.3 stable release.
 
+Discussion: [kakra/linux PR 46](https://github.com/kakra/linux/pull/46)
+
 | # | Patch | Author |
 |---|---|---|
 | 1 | [bcache: introduce bcache sysfs entries for ioprio-based bypass/writeback hints](0001-bcache-introduce-bcache-sysfs-entries-for-ioprio-bas.patch) | Kai Krakow |

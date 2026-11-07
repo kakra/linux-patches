@@ -3,16 +3,19 @@
 	url = https://github.com/kakra/linux.git
 	branch = rebase-7.3/gaming-patches
 	shallow = true
+	pr = 49
 [submodule "btrfs"]
 	path = series/btrfs
 	url = https://github.com/kakra/linux.git
 	branch = rebase-7.3/btrfs-patches
 	shallow = true
+	pr = 47
 [submodule "bcache"]
 	path = series/bcache
 	url = https://github.com/kakra/linux.git
 	branch = rebase-7.3/bcache-updates
 	shallow = true
+	pr = 46
 [submodule "base"]
 	path = base
 	url = https://github.com/kakra/linux.git
@@ -23,3 +26,4 @@
 	url = https://github.com/kakra/linux.git
 	branch = rebase-7.3/platform
 	shallow = true
+	pr = 48
