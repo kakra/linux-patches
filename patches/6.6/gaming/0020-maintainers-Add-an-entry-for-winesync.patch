@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zebediah Figura <zfigura@codeweavers.com>
+Date: Fri, 5 Mar 2021 12:22:55 -0600
+Subject: [PATCH] maintainers: Add an entry for winesync.
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ MAINTAINERS | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index f09415b2b3c5c..418ef9f6563b0 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -23240,6 +23240,15 @@ M:	David Härdeman <david@hardeman.nu>
+ S:	Maintained
+ F:	drivers/media/rc/winbond-cir.c
+ 
++WINESYNC SYNCHRONIZATION PRIMITIVE DRIVER
++M:	Zebediah Figura <zfigura@codeweavers.com>
++L:	wine-devel@winehq.org
++S:	Supported
++F:	Documentation/userspace-api/winesync.rst
++F:	drivers/misc/winesync.c
++F:	include/uapi/linux/winesync.h
++F:	tools/testing/selftests/drivers/winesync/
++
+ WINSYSTEMS EBC-C384 WATCHDOG DRIVER
+ L:	linux-watchdog@vger.kernel.org
+ S:	Orphan

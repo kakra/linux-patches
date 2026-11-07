@@ -1,0 +1,42 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "Jan Alexander Steffens (heftig)" <jan.steffens@gmail.com>
+Date: Mon, 27 Jan 2020 18:11:05 +0100
+Subject: [PATCH] ZEN: INTERACTIVE: Use BFQ as the elevator for SQ devices
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ block/elevator.c | 4 ++++
+ init/Kconfig     | 4 ++++
+ 2 files changed, 8 insertions(+)
+
+diff --git a/block/elevator.c b/block/elevator.c
+index 5ff093cb3cf8f..cd1a2c9881bc6 100644
+--- a/block/elevator.c
++++ b/block/elevator.c
+@@ -576,7 +576,11 @@ static struct elevator_type *elevator_get_default(struct request_queue *q)
+ 	    !blk_mq_is_shared_tags(q->tag_set->flags))
+ 		return NULL;
+ 
++#if defined(CONFIG_ZEN_INTERACTIVE) && defined(CONFIG_IOSCHED_BFQ)
++	return elevator_find_get(q, "bfq");
++#else
+ 	return elevator_find_get(q, "mq-deadline");
++#endif
+ }
+ 
+ /*
+diff --git a/init/Kconfig b/init/Kconfig
+index b641f9074047c..89d4f52e3f672 100644
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -138,6 +138,10 @@ config ZEN_INTERACTIVE
+ 	help
+ 	  Tunes the kernel for responsiveness at the cost of throughput and power usage.
+ 
++	  --- Block Layer ----------------------------------------
++
++	    Default scheduler for SQ..: mq-deadline ->   bfq
++
+ config BROKEN
+ 	bool
+ 

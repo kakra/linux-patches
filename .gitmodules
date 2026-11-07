@@ -1,9 +1,9 @@
 [submodule "gaming"]
 	path = series/gaming
 	url = https://github.com/kakra/linux.git
-	branch = rebase-6.1/steam-patches
+	branch = rebase-6.6/steam-patches
 	shallow = true
-	pr = 23
+	pr = 30
 [submodule "cltweaks"]
 	path = series/cltweaks
 	url = https://github.com/kakra/linux.git

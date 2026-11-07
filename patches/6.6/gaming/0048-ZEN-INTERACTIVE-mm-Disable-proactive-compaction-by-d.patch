@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sultan Alsawaf <sultan@kerneltoast.com>
+Date: Sat, 24 Oct 2020 22:17:49 -0700
+Subject: [PATCH] ZEN: INTERACTIVE: mm: Disable proactive compaction by default
+
+On-demand compaction works fine assuming that you don't have a need to
+spam the page allocator nonstop for large order page allocations.
+
+Signed-off-by: Sultan Alsawaf <sultan@kerneltoast.com>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ init/Kconfig    | 1 +
+ mm/compaction.c | 4 ++++
+ 2 files changed, 5 insertions(+)
+
+diff --git a/init/Kconfig b/init/Kconfig
+index 4f1827d7bc7cb..5fef432a7be6a 100644
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -148,6 +148,7 @@ config ZEN_INTERACTIVE
+ 	    Background-reclaim hugepages...:   no   ->   yes
+ 	    MG-LRU minimum cache TTL.......:   0    ->   1000 ms
+ 	    Compact unevictable............:   yes  ->   no
++	    Compaction proactiveness.......:  20    ->   0
+ 
+ 	  --- EEVDF CPU Scheduler --------------------------------
+ 
+diff --git a/mm/compaction.c b/mm/compaction.c
+index 61c741f11e9bb..fc959a11fee2d 100644
+--- a/mm/compaction.c
++++ b/mm/compaction.c
+@@ -1809,7 +1809,11 @@ static int sysctl_compact_unevictable_allowed __read_mostly = CONFIG_COMPACT_UNE
+  * aggressively the kernel should compact memory in the
+  * background. It takes values in the range [0, 100].
+  */
++#ifdef CONFIG_ZEN_INTERACTIVE
++static unsigned int __read_mostly sysctl_compaction_proactiveness;
++#else
+ static unsigned int __read_mostly sysctl_compaction_proactiveness = 20;
++#endif
+ static int sysctl_extfrag_threshold = 500;
+ static int __read_mostly sysctl_compact_memory;
+ 

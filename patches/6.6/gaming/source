@@ -1,0 +1,5 @@
+branch=rebase-6.6/steam-patches
+base=v6.6.44
+head=d29edf912f5a2bb2bcb8b0c8e19eb2efb017f5dc
+date=2024-08-04
+pr=30
