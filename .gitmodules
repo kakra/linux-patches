@@ -19,3 +19,8 @@
 	url = https://github.com/kakra/linux.git
 	branch = base-7.3
 	shallow = true
+[submodule "platform"]
+	path = series/platform
+	url = https://github.com/kakra/linux.git
+	branch = rebase-7.3/platform
+	shallow = true

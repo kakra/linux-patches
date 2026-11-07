@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Sat, 7 Nov 2026 17:34:14 +0100
+Subject: [PATCH] tcp_bbr3: let DEFAULT_BBR3 select bbr3 as the default
+
+CONFIG_DEFAULT_BBR3 can be chosen in "Default TCP congestion control",
+but DEFAULT_TCP_CONG has no default for it and falls back to "cubic".
+A kernel built with DEFAULT_BBR3=y therefore boots with cubic as
+net.ipv4.tcp_congestion_control. Add the missing default.
+
+Fixes: a2432bcd8b59 ("tcp_bbr3: add BBRv3 congestion control")
+Assisted-by: Claude
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ net/ipv4/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index 3a39a992af5db..2ac873aedcfea 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -759,6 +759,7 @@ config DEFAULT_TCP_CONG
+ 	default "dctcp" if DEFAULT_DCTCP
+ 	default "cdg" if DEFAULT_CDG
+ 	default "bbr" if DEFAULT_BBR
++	default "bbr3" if DEFAULT_BBR3
+ 	default "cubic"
+ 
+ config TCP_AO

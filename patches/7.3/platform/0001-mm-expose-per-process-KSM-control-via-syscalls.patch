@@ -1,0 +1,459 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Sun, 14 Dec 2025 01:00:14 +0100
+Subject: [PATCH] mm: expose per-process KSM control via syscalls
+
+d7597f59d1d3 added a new API to enable per-process KSM control. It
+however uses prctl, which doesn't allow controlling KSM from outside of
+the current process.
+
+Hence, expose this API via 3 syscalls: process_ksm_enable,
+process_ksm_disable and process_ksm_status. Given sufficient privileges,
+auto-KSM can be enable by another process.
+
+Since these syscalls are not in the upstream kernel, also expose their
+numbers under /sys/kernel/process_ksm so that userspace tooling like
+uksmd knows how to use them.
+
+Signed-off-by: Oleksandr Natalenko <oleksandr@natalenko.name>
+Co-authored-by: Oleksandr Natalenko <oleksandr@natalenko.name>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+[Rebased onto 7.3: syscalls 470 to 472 are taken by listns,
+rseq_slice_yield and fchroot, so the process_ksm syscalls move to 473
+to 475 (583 to 585 on alpha).]
+(cherry picked from commit ec913df61ebdd2dd35eab4b8e0fb93474563a740)
+Assisted-by: Claude
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ arch/alpha/kernel/syscalls/syscall.tbl        |   3 +
+ arch/arm/tools/syscall.tbl                    |   3 +
+ arch/m68k/kernel/syscalls/syscall.tbl         |   3 +
+ arch/microblaze/kernel/syscalls/syscall.tbl   |   3 +
+ arch/mips/kernel/syscalls/syscall_n32.tbl     |   3 +
+ arch/mips/kernel/syscalls/syscall_n64.tbl     |   3 +
+ arch/mips/kernel/syscalls/syscall_o32.tbl     |   3 +
+ arch/parisc/kernel/syscalls/syscall.tbl       |   3 +
+ arch/powerpc/kernel/syscalls/syscall.tbl      |   3 +
+ arch/s390/kernel/syscalls/syscall.tbl         |   3 +
+ arch/sh/kernel/syscalls/syscall.tbl           |   3 +
+ arch/sparc/kernel/syscalls/syscall.tbl        |   3 +
+ arch/x86/entry/syscalls/syscall_32.tbl        |   3 +
+ arch/x86/entry/syscalls/syscall_64.tbl        |   3 +
+ arch/xtensa/kernel/syscalls/syscall.tbl       |   3 +
+ include/linux/syscalls.h                      |   3 +
+ include/uapi/asm-generic/unistd.h             |   9 +-
+ kernel/sys.c                                  | 147 ++++++++++++++++++
+ kernel/sys_ni.c                               |   3 +
+ scripts/syscall.tbl                           |   3 +
+ .../arch/powerpc/entry/syscalls/syscall.tbl   |   3 +
+ .../perf/arch/s390/entry/syscalls/syscall.tbl |   3 +
+ 22 files changed, 215 insertions(+), 1 deletion(-)
+
+diff --git a/arch/alpha/kernel/syscalls/syscall.tbl b/arch/alpha/kernel/syscalls/syscall.tbl
+index 52e3538cc7df4..19034ce48dd6d 100644
+--- a/arch/alpha/kernel/syscalls/syscall.tbl
++++ b/arch/alpha/kernel/syscalls/syscall.tbl
+@@ -512,3 +512,6 @@
+ 580	common	listns				sys_listns
+ 581	common	rseq_slice_yield		sys_rseq_slice_yield
+ 582	common	fchroot				sys_fchroot
++583	common	process_ksm_enable		sys_process_ksm_enable
++584	common	process_ksm_disable		sys_process_ksm_disable
++585	common	process_ksm_status		sys_process_ksm_status
+diff --git a/arch/arm/tools/syscall.tbl b/arch/arm/tools/syscall.tbl
+index 55717ed32c27e..28f965817e948 100644
+--- a/arch/arm/tools/syscall.tbl
++++ b/arch/arm/tools/syscall.tbl
+@@ -487,3 +487,6 @@
+ 470	common	listns				sys_listns
+ 471	common	rseq_slice_yield		sys_rseq_slice_yield
+ 472	common	fchroot				sys_fchroot
++473	common	process_ksm_enable		sys_process_ksm_enable
++474	common	process_ksm_disable		sys_process_ksm_disable
++475	common	process_ksm_status		sys_process_ksm_status
+diff --git a/arch/m68k/kernel/syscalls/syscall.tbl b/arch/m68k/kernel/syscalls/syscall.tbl
+index ba7a4d8903d04..a608fd57fff23 100644
+--- a/arch/m68k/kernel/syscalls/syscall.tbl
++++ b/arch/m68k/kernel/syscalls/syscall.tbl
+@@ -472,3 +472,6 @@
+ 470	common	listns				sys_listns
+ 471	common	rseq_slice_yield		sys_rseq_slice_yield
+ 472	common	fchroot				sys_fchroot
++473	common	process_ksm_enable		sys_process_ksm_enable
++474	common	process_ksm_disable		sys_process_ksm_disable
++475	common	process_ksm_status		sys_process_ksm_status
+diff --git a/arch/microblaze/kernel/syscalls/syscall.tbl b/arch/microblaze/kernel/syscalls/syscall.tbl
+index c55a5c96f49b8..05b7f620e2c01 100644
+--- a/arch/microblaze/kernel/syscalls/syscall.tbl
++++ b/arch/microblaze/kernel/syscalls/syscall.tbl
+@@ -478,3 +478,6 @@
+ 470	common	listns				sys_listns
+ 471	common	rseq_slice_yield		sys_rseq_slice_yield
+ 472	common	fchroot				sys_fchroot
++473	common	process_ksm_enable		sys_process_ksm_enable
++474	common	process_ksm_disable		sys_process_ksm_disable
++475	common	process_ksm_status		sys_process_ksm_status
+diff --git a/arch/mips/kernel/syscalls/syscall_n32.tbl b/arch/mips/kernel/syscalls/syscall_n32.tbl
+index 9ae88e4eac61e..866a6afe0c522 100644
+--- a/arch/mips/kernel/syscalls/syscall_n32.tbl
++++ b/arch/mips/kernel/syscalls/syscall_n32.tbl
+@@ -411,3 +411,6 @@
+ 470	n32	listns				sys_listns
+ 471	n32	rseq_slice_yield		sys_rseq_slice_yield
+ 472	n32	fchroot				sys_fchroot
++473	n32	process_ksm_enable		sys_process_ksm_enable
++474	n32	process_ksm_disable		sys_process_ksm_disable
++475	n32	process_ksm_status		sys_process_ksm_status
+diff --git a/arch/mips/kernel/syscalls/syscall_n64.tbl b/arch/mips/kernel/syscalls/syscall_n64.tbl
+index 83dc93a0712f1..5c7c628359a4f 100644
+--- a/arch/mips/kernel/syscalls/syscall_n64.tbl
++++ b/arch/mips/kernel/syscalls/syscall_n64.tbl
+@@ -387,3 +387,6 @@
+ 470	n64	listns				sys_listns
+ 471	n64	rseq_slice_yield		sys_rseq_slice_yield
+ 472	n64	fchroot				sys_fchroot
++473	n64	process_ksm_enable		sys_process_ksm_enable
++474	n64	process_ksm_disable		sys_process_ksm_disable
++475	n64	process_ksm_status		sys_process_ksm_status
+diff --git a/arch/mips/kernel/syscalls/syscall_o32.tbl b/arch/mips/kernel/syscalls/syscall_o32.tbl
+index 9c62429c9b7b4..88366867c5a70 100644
+--- a/arch/mips/kernel/syscalls/syscall_o32.tbl
++++ b/arch/mips/kernel/syscalls/syscall_o32.tbl
+@@ -460,3 +460,6 @@
+ 470	o32	listns				sys_listns
+ 471	o32	rseq_slice_yield		sys_rseq_slice_yield
+ 472	o32	fchroot				sys_fchroot
++473	o32	process_ksm_enable		sys_process_ksm_enable
++474	o32	process_ksm_disable		sys_process_ksm_disable
++475	o32	process_ksm_status		sys_process_ksm_status
+diff --git a/arch/parisc/kernel/syscalls/syscall.tbl b/arch/parisc/kernel/syscalls/syscall.tbl
+index 88adc4016cce0..b42bee1024f16 100644
+--- a/arch/parisc/kernel/syscalls/syscall.tbl
++++ b/arch/parisc/kernel/syscalls/syscall.tbl
+@@ -471,3 +471,6 @@
+ 470	common	listns				sys_listns
+ 471	common	rseq_slice_yield		sys_rseq_slice_yield
+ 472	common	fchroot				sys_fchroot
++473	common	process_ksm_enable		sys_process_ksm_enable
++474	common	process_ksm_disable		sys_process_ksm_disable
++475	common	process_ksm_status		sys_process_ksm_status
+diff --git a/arch/powerpc/kernel/syscalls/syscall.tbl b/arch/powerpc/kernel/syscalls/syscall.tbl
+index cfbb70039ff00..303ffaf98721f 100644
+--- a/arch/powerpc/kernel/syscalls/syscall.tbl
++++ b/arch/powerpc/kernel/syscalls/syscall.tbl
+@@ -563,3 +563,6 @@
+ 470	common	listns				sys_listns
+ 471	nospu	rseq_slice_yield		sys_rseq_slice_yield
+ 472	common	fchroot				sys_fchroot
++473	common	process_ksm_enable		sys_process_ksm_enable
++474	common	process_ksm_disable		sys_process_ksm_disable
++475	common	process_ksm_status		sys_process_ksm_status
+diff --git a/arch/s390/kernel/syscalls/syscall.tbl b/arch/s390/kernel/syscalls/syscall.tbl
+index 1b45e68a217bb..2429c2ee3b620 100644
+--- a/arch/s390/kernel/syscalls/syscall.tbl
++++ b/arch/s390/kernel/syscalls/syscall.tbl
+@@ -399,3 +399,6 @@
+ 470	common	listns				sys_listns
+ 471	common	rseq_slice_yield		sys_rseq_slice_yield
+ 472	common	fchroot				sys_fchroot
++473  common	process_ksm_enable	sys_process_ksm_enable		sys_process_ksm_enable
++474  common	process_ksm_disable	sys_process_ksm_disable		sys_process_ksm_disable
++475  common	process_ksm_status	sys_process_ksm_status		sys_process_ksm_status
+diff --git a/arch/sh/kernel/syscalls/syscall.tbl b/arch/sh/kernel/syscalls/syscall.tbl
+index ace068dff0de0..f859391048f1c 100644
+--- a/arch/sh/kernel/syscalls/syscall.tbl
++++ b/arch/sh/kernel/syscalls/syscall.tbl
+@@ -476,3 +476,6 @@
+ 470	common	listns				sys_listns
+ 471	common	rseq_slice_yield		sys_rseq_slice_yield
+ 472	common	fchroot				sys_fchroot
++473	common	process_ksm_enable		sys_process_ksm_enable
++474	common	process_ksm_disable		sys_process_ksm_disable
++475	common	process_ksm_status		sys_process_ksm_status
+diff --git a/arch/sparc/kernel/syscalls/syscall.tbl b/arch/sparc/kernel/syscalls/syscall.tbl
+index 5b9fe0e8140f2..757d0f1aa75f7 100644
+--- a/arch/sparc/kernel/syscalls/syscall.tbl
++++ b/arch/sparc/kernel/syscalls/syscall.tbl
+@@ -518,3 +518,6 @@
+ 470	common	listns				sys_listns
+ 471	common	rseq_slice_yield		sys_rseq_slice_yield
+ 472	common	fchroot				sys_fchroot
++473	common	process_ksm_enable		sys_process_ksm_enable
++474	common	process_ksm_disable		sys_process_ksm_disable
++475	common	process_ksm_status		sys_process_ksm_status
+diff --git a/arch/x86/entry/syscalls/syscall_32.tbl b/arch/x86/entry/syscalls/syscall_32.tbl
+index 2c172ef48dfd3..a3ad7ed3f4e64 100644
+--- a/arch/x86/entry/syscalls/syscall_32.tbl
++++ b/arch/x86/entry/syscalls/syscall_32.tbl
+@@ -478,3 +478,6 @@
+ 470	i386	listns			sys_listns
+ 471	i386	rseq_slice_yield	sys_rseq_slice_yield
+ 472	i386	fchroot			sys_fchroot
++473	i386	process_ksm_enable	sys_process_ksm_enable
++474	i386	process_ksm_disable	sys_process_ksm_disable
++475	i386	process_ksm_status	sys_process_ksm_status
+diff --git a/arch/x86/entry/syscalls/syscall_64.tbl b/arch/x86/entry/syscalls/syscall_64.tbl
+index d5b6045b0090c..8b3849deefde4 100644
+--- a/arch/x86/entry/syscalls/syscall_64.tbl
++++ b/arch/x86/entry/syscalls/syscall_64.tbl
+@@ -397,6 +397,9 @@
+ 470	common	listns			sys_listns
+ 471	common	rseq_slice_yield	sys_rseq_slice_yield
+ 472	common	fchroot			sys_fchroot
++473	common	process_ksm_enable	sys_process_ksm_enable
++474	common	process_ksm_disable	sys_process_ksm_disable
++475	common	process_ksm_status	sys_process_ksm_status
+ 
+ #
+ # Due to a historical design error, certain syscalls are numbered differently
+diff --git a/arch/xtensa/kernel/syscalls/syscall.tbl b/arch/xtensa/kernel/syscalls/syscall.tbl
+index d354bb231796c..c1ca34fa8282a 100644
+--- a/arch/xtensa/kernel/syscalls/syscall.tbl
++++ b/arch/xtensa/kernel/syscalls/syscall.tbl
+@@ -443,3 +443,6 @@
+ 470	common	listns				sys_listns
+ 471	common	rseq_slice_yield		sys_rseq_slice_yield
+ 472	common	fchroot				sys_fchroot
++473	common	process_ksm_enable		sys_process_ksm_enable
++474	common	process_ksm_disable		sys_process_ksm_disable
++475	common	process_ksm_status		sys_process_ksm_status
+diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
+index 8413b624ad478..91fe27e68523d 100644
+--- a/include/linux/syscalls.h
++++ b/include/linux/syscalls.h
+@@ -846,6 +846,9 @@ asmlinkage long sys_madvise(unsigned long start, size_t len, int behavior);
+ asmlinkage long sys_process_madvise(int pidfd, const struct iovec __user *vec,
+ 			size_t vlen, int behavior, unsigned int flags);
+ asmlinkage long sys_process_mrelease(int pidfd, unsigned int flags);
++asmlinkage long sys_process_ksm_enable(int pidfd, unsigned int flags);
++asmlinkage long sys_process_ksm_disable(int pidfd, unsigned int flags);
++asmlinkage long sys_process_ksm_status(int pidfd, unsigned int flags);
+ asmlinkage long sys_remap_file_pages(unsigned long start, unsigned long size,
+ 			unsigned long prot, unsigned long pgoff,
+ 			unsigned long flags);
+diff --git a/include/uapi/asm-generic/unistd.h b/include/uapi/asm-generic/unistd.h
+index 5b7e77a7c736e..00ca6e0a3ff41 100644
+--- a/include/uapi/asm-generic/unistd.h
++++ b/include/uapi/asm-generic/unistd.h
+@@ -867,8 +867,15 @@ __SYSCALL(__NR_rseq_slice_yield, sys_rseq_slice_yield)
+ #define __NR_fchroot 472
+ __SYSCALL(__NR_fchroot, sys_fchroot)
+ 
++#define __NR_process_ksm_enable 473
++__SYSCALL(__NR_process_ksm_enable, sys_process_ksm_enable)
++#define __NR_process_ksm_disable 474
++__SYSCALL(__NR_process_ksm_disable, sys_process_ksm_disable)
++#define __NR_process_ksm_status 475
++__SYSCALL(__NR_process_ksm_status, sys_process_ksm_status)
++
+ #undef __NR_syscalls
+-#define __NR_syscalls 473
++#define __NR_syscalls 476
+ 
+ /*
+  * 32 bit systems traditionally used different
+diff --git a/kernel/sys.c b/kernel/sys.c
+index 35b538ba843c7..22bc4a9976a01 100644
+--- a/kernel/sys.c
++++ b/kernel/sys.c
+@@ -2915,6 +2915,153 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
+ 	return error;
+ }
+ 
++#ifdef CONFIG_KSM
++enum pkc_action {
++	PKSM_ENABLE = 0,
++	PKSM_DISABLE,
++	PKSM_STATUS,
++};
++
++static long do_process_ksm_control(int pidfd, enum pkc_action action)
++{
++	long ret;
++	struct pid *pid;
++	struct task_struct *task;
++	struct mm_struct *mm;
++	unsigned int f_flags;
++
++	pid = pidfd_get_pid(pidfd, &f_flags);
++	if (IS_ERR(pid)) {
++		ret = PTR_ERR(pid);
++		goto out;
++	}
++
++	task = get_pid_task(pid, PIDTYPE_PID);
++	if (!task) {
++		ret = -ESRCH;
++		goto put_pid;
++	}
++
++	/* Require PTRACE_MODE_READ to avoid leaking ASLR metadata. */
++	mm = mm_access(task, PTRACE_MODE_READ_FSCREDS);
++	if (IS_ERR_OR_NULL(mm)) {
++		ret = IS_ERR(mm) ? PTR_ERR(mm) : -ESRCH;
++		goto release_task;
++	}
++
++	/* Require CAP_SYS_NICE for influencing process performance. */
++	if (!capable(CAP_SYS_NICE)) {
++		ret = -EPERM;
++		goto release_mm;
++	}
++
++	if (mmap_write_lock_killable(mm)) {
++		ret = -EINTR;
++		goto release_mm;
++	}
++
++	switch (action) {
++		case PKSM_ENABLE:
++			ret = ksm_enable_merge_any(mm);
++			break;
++		case PKSM_DISABLE:
++			ret = ksm_disable_merge_any(mm);
++			break;
++		case PKSM_STATUS:
++			ret = mm_flags_test(MMF_VM_MERGE_ANY, mm);
++			break;
++	}
++
++	mmap_write_unlock(mm);
++
++release_mm:
++	mmput(mm);
++release_task:
++	put_task_struct(task);
++put_pid:
++	put_pid(pid);
++out:
++	return ret;
++}
++#endif /* CONFIG_KSM */
++
++SYSCALL_DEFINE2(process_ksm_enable, int, pidfd, unsigned int, flags)
++{
++#ifdef CONFIG_KSM
++	if (flags != 0)
++		return -EINVAL;
++
++	return do_process_ksm_control(pidfd, PKSM_ENABLE);
++#else /* CONFIG_KSM */
++	return -ENOSYS;
++#endif /* CONFIG_KSM */
++}
++
++SYSCALL_DEFINE2(process_ksm_disable, int, pidfd, unsigned int, flags)
++{
++#ifdef CONFIG_KSM
++	if (flags != 0)
++		return -EINVAL;
++
++	return do_process_ksm_control(pidfd, PKSM_DISABLE);
++#else /* CONFIG_KSM */
++	return -ENOSYS;
++#endif /* CONFIG_KSM */
++}
++
++SYSCALL_DEFINE2(process_ksm_status, int, pidfd, unsigned int, flags)
++{
++#ifdef CONFIG_KSM
++	if (flags != 0)
++		return -EINVAL;
++
++	return do_process_ksm_control(pidfd, PKSM_STATUS);
++#else /* CONFIG_KSM */
++	return -ENOSYS;
++#endif /* CONFIG_KSM */
++}
++
++#ifdef CONFIG_KSM
++static ssize_t process_ksm_enable_show(struct kobject *kobj,
++		struct kobj_attribute *attr, char *buf)
++{
++	return sprintf(buf, "%u\n", __NR_process_ksm_enable);
++}
++static struct kobj_attribute process_ksm_enable_attr = __ATTR_RO(process_ksm_enable);
++
++static ssize_t process_ksm_disable_show(struct kobject *kobj,
++		struct kobj_attribute *attr, char *buf)
++{
++	return sprintf(buf, "%u\n", __NR_process_ksm_disable);
++}
++static struct kobj_attribute process_ksm_disable_attr = __ATTR_RO(process_ksm_disable);
++
++static ssize_t process_ksm_status_show(struct kobject *kobj,
++		struct kobj_attribute *attr, char *buf)
++{
++	return sprintf(buf, "%u\n", __NR_process_ksm_status);
++}
++static struct kobj_attribute process_ksm_status_attr = __ATTR_RO(process_ksm_status);
++
++static struct attribute *process_ksm_sysfs_attrs[] = {
++	&process_ksm_enable_attr.attr,
++	&process_ksm_disable_attr.attr,
++	&process_ksm_status_attr.attr,
++	NULL,
++};
++
++static const struct attribute_group process_ksm_sysfs_attr_group = {
++	.attrs = process_ksm_sysfs_attrs,
++	.name = "process_ksm",
++};
++
++static int __init process_ksm_sysfs_init(void)
++{
++	return sysfs_create_group(kernel_kobj, &process_ksm_sysfs_attr_group);
++}
++subsys_initcall(process_ksm_sysfs_init);
++#endif /* CONFIG_KSM */
++
+ SYSCALL_DEFINE3(getcpu, unsigned __user *, cpup, unsigned __user *, nodep, void __user *, unused)
+ {
+ 	int err = 0;
+diff --git a/kernel/sys_ni.c b/kernel/sys_ni.c
+index c8be0abaa4077..d605fd61b2996 100644
+--- a/kernel/sys_ni.c
++++ b/kernel/sys_ni.c
+@@ -186,6 +186,9 @@ COND_SYSCALL(mincore);
+ COND_SYSCALL(madvise);
+ COND_SYSCALL(process_madvise);
+ COND_SYSCALL(process_mrelease);
++COND_SYSCALL(process_ksm_enable);
++COND_SYSCALL(process_ksm_disable);
++COND_SYSCALL(process_ksm_status);
+ COND_SYSCALL(remap_file_pages);
+ COND_SYSCALL(mbind);
+ COND_SYSCALL(get_mempolicy);
+diff --git a/scripts/syscall.tbl b/scripts/syscall.tbl
+index 0ab5316051202..1e0162018449f 100644
+--- a/scripts/syscall.tbl
++++ b/scripts/syscall.tbl
+@@ -413,3 +413,6 @@
+ 470	common	listns				sys_listns
+ 471	common	rseq_slice_yield		sys_rseq_slice_yield
+ 472	common	fchroot				sys_fchroot
++473	common	process_ksm_enable		sys_process_ksm_enable
++474	common	process_ksm_disable		sys_process_ksm_disable
++475	common	process_ksm_status		sys_process_ksm_status
+diff --git a/tools/perf/arch/powerpc/entry/syscalls/syscall.tbl b/tools/perf/arch/powerpc/entry/syscalls/syscall.tbl
+index cfbb70039ff00..303ffaf98721f 100644
+--- a/tools/perf/arch/powerpc/entry/syscalls/syscall.tbl
++++ b/tools/perf/arch/powerpc/entry/syscalls/syscall.tbl
+@@ -563,3 +563,6 @@
+ 470	common	listns				sys_listns
+ 471	nospu	rseq_slice_yield		sys_rseq_slice_yield
+ 472	common	fchroot				sys_fchroot
++473	common	process_ksm_enable		sys_process_ksm_enable
++474	common	process_ksm_disable		sys_process_ksm_disable
++475	common	process_ksm_status		sys_process_ksm_status
+diff --git a/tools/perf/arch/s390/entry/syscalls/syscall.tbl b/tools/perf/arch/s390/entry/syscalls/syscall.tbl
+index 1b45e68a217bb..2429c2ee3b620 100644
+--- a/tools/perf/arch/s390/entry/syscalls/syscall.tbl
++++ b/tools/perf/arch/s390/entry/syscalls/syscall.tbl
+@@ -399,3 +399,6 @@
+ 470	common	listns				sys_listns
+ 471	common	rseq_slice_yield		sys_rseq_slice_yield
+ 472	common	fchroot				sys_fchroot
++473  common	process_ksm_enable	sys_process_ksm_enable		sys_process_ksm_enable
++474  common	process_ksm_disable	sys_process_ksm_disable		sys_process_ksm_disable
++475  common	process_ksm_status	sys_process_ksm_status		sys_process_ksm_status
