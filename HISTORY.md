@@ -4,6 +4,39 @@ The series per kernel series, newest first. "Last change" is the commit
 date of the exported tip; the pull request dates show when the series
 was tracked.
 
+## 5.15
+
+| Series | Branch | Base | Patches | Last change | Pull request |
+|---|---|---|---|---|---|
+| [`bcache`](patches/5.15/bcache/) | `rebase-5.15/bcache-updates` | `v5.15` | 3 | 2021-11-12 | [#19][pr-19], 2021-11-13 to 2023-03-11 |
+| [`btrfs`](patches/5.15/btrfs/) | `rebase-5.15/btrfs-patches` | `v5.15` | 4 | 2021-12-04 | [#20][pr-20], 2021-12-05 to 2023-03-11 |
+| [`cltweaks`](patches/5.15/cltweaks/) | `rebase-5.15/clearlinux-tweaks` | `v5.15.44` | 27 | 2022-05-31 | [#17][pr-17], 2021-11-13 to 2023-03-11 |
+| [`gaming`](patches/5.15/gaming/) | `rebase-5.15/steam-patches` | `v5.15.86` | 45 | 2023-01-10 | [#16][pr-16], 2021-11-13 to 2023-03-11 |
+| [`pf-ksm`](patches/5.15/pf-ksm/) | `rebase-5.15/pf-ksm` | `v5.15` | 4 | 2021-11-13 | [#18][pr-18], 2021-11-13 to 2023-03-11 |
+| [`xpadneo`](patches/5.15/xpadneo/) | `rebase-5.15/xpadneo` | `v5.15` | 7 | 2022-06-30 | [#15][pr-15], 2021-11-07 to 2023-03-11 |
+
+Base: `base-5.15` at `v5.15.86`, pinned as `base/`.
+
+- `ck` is given up: the -ck patches were not ported beyond 5.10.
+- `gaming`: futex2 and `FUTEX_WAIT_MULTIPLE` are replaced by
+  `futex_waitv()` as merged upstream in 5.16. Adds winesync events and
+  alertable waits, threaded IRQs by default (from -ck), bfq as the default
+  IO scheduler, soft dirty read with reset, and protection of mappings under
+  memory pressure. Based on 5.15.86.
+- `bcache`: the upstream fixes of 5.10 are part of 5.15, the ioprio hints
+  remain.
+- `btrfs`: new. Allocator hints: the chunk allocator prefers devices by
+  their `dev_item.type`, set through
+  `/sys/fs/btrfs/<uuid>/devinfo/<devid>/type`, e.g. metadata on SSDs and
+  data on HDDs. The file system stays compatible with unpatched kernels.
+
+[pr-19]: https://github.com/kakra/linux/pull/19
+[pr-20]: https://github.com/kakra/linux/pull/20
+[pr-17]: https://github.com/kakra/linux/pull/17
+[pr-16]: https://github.com/kakra/linux/pull/16
+[pr-18]: https://github.com/kakra/linux/pull/18
+[pr-15]: https://github.com/kakra/linux/pull/15
+
 ## 5.10
 
 | Series | Branch | Base | Patches | Last change | Pull request |
