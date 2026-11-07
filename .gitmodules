@@ -28,6 +28,12 @@
 	branch = rebase-6.6/btrfs-patches
 	shallow = true
 	pr = 31
+[submodule "bcache"]
+	path = series/bcache
+	url = https://github.com/kakra/linux.git
+	branch = rebase-6.6/bcache-updates
+	shallow = true
+	pr = 32
 [submodule "base"]
 	path = base
 	url = https://github.com/kakra/linux.git
