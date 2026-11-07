@@ -1,0 +1,65 @@
+name: Build series
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'patches/**'
+      - 'configs/**'
+      - 'tools/ci-build.sh'
+      - '.github/workflows/build.yml'
+  pull_request:
+    paths:
+      - 'patches/**'
+      - 'configs/**'
+      - 'tools/ci-build.sh'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Kernel series to build (default: the newest in patches/)'
+        required: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: plan
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          version=$INPUT_VERSION
+          [ -n "$version" ] || version=$(ls patches | sort -V | tail -n1)
+          [[ $version =~ ^[0-9]+\.[0-9]+$ ]] || { echo "invalid version: $version"; exit 1; }
+          series=$(for d in patches/$version/*/; do [ -f "$d/series" ] && basename "$d"; done)
+          for s in $series; do
+            [[ $s =~ ^[a-z0-9-]+$ ]] || { echo "invalid series name: $s"; exit 1; }
+          done
+          # Each series alone, then all of them together.
+          matrix=$( (for s in $series; do echo "$s"; done; echo $series) |
+            python3 -c 'import json,sys; print(json.dumps({"series": [l.strip() for l in sys.stdin if l.strip()]}))')
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+          echo "matrix=$matrix" >>"$GITHUB_OUTPUT"
+
+  build:
+    needs: plan
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    name: ${{ needs.plan.outputs.version }} ${{ matrix.series }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -qy bc bison flex libelf-dev libssl-dev
+      - name: Build
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+          SERIES: ${{ matrix.series }}
+        run: tools/ci-build.sh "$VERSION" $SERIES

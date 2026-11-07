@@ -67,8 +67,9 @@ Co-Authored-By: ...
 - `<area>` is one of `repo` (top-level files such as README, LICENSE,
   HISTORY.md, AGENTS.md), `series` (submodule entries without an export,
   e.g. dropping a series), `patches` (an export together with its pin),
-  `base` (the pin of the `base/` submodule), `tools`, `docs`,
-  `benchmarks`, `observations`.
+  `base` (the pin of the `base/` submodule), `tools` (including
+  `configs/`), `docs`, `benchmarks`, `observations`, `github` (the
+  workflows in `.github/`).
 - The summary is imperative and lower case, without a final period, and the
   whole subject line has at most 72 characters.
 - The `References:` list is optional and plain text (see the rule above).
@@ -82,6 +83,10 @@ Co-Authored-By: ...
 - Export after changing a branch: `tools/export-series.sh --summary <name>`,
   review `git diff --stat patches/`, stage the pin
   (`git add series/<name>`) and commit with `build/export-message.txt`.
+- Test-build exports on tinyconfig plus `configs/<name>.config`:
+  `tools/ci-build.sh <version> [<name>...]` (the GitHub workflow runs each
+  series alone and all together). Add the options a new series needs to
+  its fragment.
 - Check that a series applies to its base, or to another tag:
   `tools/check-series.sh [--on <tag>] <version> [<name>...]`.
 - A series moves to a new kernel series with `tools/add-series.sh`, a series
