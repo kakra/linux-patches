@@ -19,9 +19,9 @@
 [submodule "xpadneo"]
 	path = series/xpadneo
 	url = https://github.com/kakra/linux.git
-	branch = rebase-6.6/xpadneo
+	branch = rebase-6.12/xpadneo
 	shallow = true
-	pr = 29
+	pr = 38
 [submodule "btrfs"]
 	path = series/btrfs
 	url = https://github.com/kakra/linux.git

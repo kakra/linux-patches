@@ -1,0 +1,6 @@
+0001-xpadneo-Add-hid-xpadneo-v0.9.5.patch
+0002-xpadneo-Exclude-xpadneo-devices-from-hid-generic.patch
+0003-xpadneo-Exclude-xpadneo-devices-from-hid-microsoft.patch
+0004-Added-hid-xpadneo-to-Makefile.patch
+0005-Added-hid-xpadneo-to-Kconfig-hid.patch
+0006-xpadneo-Merge-upstream-changes.patch
