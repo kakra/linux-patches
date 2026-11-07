@@ -1,0 +1,5 @@
+branch=rebase-6.6/clearlinux-tweaks
+base=v6.6
+head=5edc2983c6717da74e2a289245cb54c085ea792f
+date=2023-11-19
+pr=28

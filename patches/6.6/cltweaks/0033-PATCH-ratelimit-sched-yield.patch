@@ -1,0 +1,42 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Intel ClearLinux <unknown>
+Date: Sun, 19 Nov 2023 21:16:46 +0100
+Subject: [PATCH] [PATCH] ratelimit sched yield
+
+Some misguided apps hammer sched_yield() in a tight loop (they should be using futexes instead)
+which causes massive lock contention even if there is little work to do or to yield to.
+rare limit yielding since the base scheduler does a pretty good job already about just
+running the right things
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ kernel/sched/core.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 25c45b1dff003..1868e28d7ad20 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -8525,10 +8525,22 @@ SYSCALL_DEFINE3(sched_getaffinity, pid_t, pid, unsigned int, len,
+ 	return ret;
+ }
+ 
++static DEFINE_PER_CPU(unsigned long, last_yield);
++
+ static void do_sched_yield(void)
+ {
+ 	struct rq_flags rf;
+ 	struct rq *rq;
++	int cpu = raw_smp_processor_id();
++
++	cond_resched();
++
++	/* rate limit yielding to something sensible */
++	
++	if (!time_after(jiffies, per_cpu(last_yield, cpu)))
++		return;
++	
++	per_cpu(last_yield, cpu) = jiffies;
+ 
+ 	rq = this_rq_lock_irq(&rf);
+ 

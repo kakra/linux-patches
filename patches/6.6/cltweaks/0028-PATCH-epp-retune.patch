@@ -1,0 +1,23 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Intel ClearLinux <unknown>
+Date: Sun, 19 Nov 2023 21:19:46 +0100
+Subject: [PATCH] [PATCH] epp retune
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ arch/x86/include/asm/msr-index.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/x86/include/asm/msr-index.h b/arch/x86/include/asm/msr-index.h
+index b37abb55e948b..23c7dfa24cda9 100644
+--- a/arch/x86/include/asm/msr-index.h
++++ b/arch/x86/include/asm/msr-index.h
+@@ -490,7 +490,7 @@
+ #define HWP_MAX_PERF(x) 		((x & 0xff) << 8)
+ #define HWP_DESIRED_PERF(x)		((x & 0xff) << 16)
+ #define HWP_ENERGY_PERF_PREFERENCE(x)	(((unsigned long long) x & 0xff) << 24)
+-#define HWP_EPP_PERFORMANCE		0x00
++#define HWP_EPP_PERFORMANCE		0x01
+ #define HWP_EPP_BALANCE_PERFORMANCE	0x80
+ #define HWP_EPP_BALANCE_POWERSAVE	0xC0
+ #define HWP_EPP_POWERSAVE		0xFF

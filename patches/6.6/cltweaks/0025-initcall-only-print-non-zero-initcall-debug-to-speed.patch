@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Colin Ian King <colin.king@intel.com>
+Date: Fri, 20 Jan 2023 11:16:42 +0000
+Subject: [PATCH] initcall: only print non-zero initcall debug to speed up boot
+
+Printing initcall timings that successfully return after 0 usecs
+provides not much useful information and takes a small amount of time
+to do so. Disable the initcall timings for these specific cases. On
+an Alderlake i9-12900 this reduces kernel boot time by 0.67% (timed
+up to the invocation of systemd starting) based on 10 boot measurements.
+
+Signed-off-by: Colin Ian King <colin.king@intel.com>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ init/main.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/init/main.c b/init/main.c
+index 436d73261810b..4ace622f2e902 100644
+--- a/init/main.c
++++ b/init/main.c
+@@ -1183,10 +1183,13 @@ static __init_or_module void
+ trace_initcall_finish_cb(void *data, initcall_t fn, int ret)
+ {
+ 	ktime_t rettime, *calltime = data;
++	long long delta;
+ 
+ 	rettime = ktime_get();
+-	printk(KERN_DEBUG "initcall %pS returned %d after %lld usecs\n",
+-		 fn, ret, (unsigned long long)ktime_us_delta(rettime, *calltime));
++	delta = ktime_us_delta(rettime, *calltime);
++	if (ret || delta)
++		printk(KERN_DEBUG "initcall %pS returned %d after %lld usecs\n",
++			fn, ret, (unsigned long long)ktime_us_delta(rettime, *calltime));
+ }
+ 
+ static ktime_t initcall_calltime;

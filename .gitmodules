@@ -7,9 +7,9 @@
 [submodule "cltweaks"]
 	path = series/cltweaks
 	url = https://github.com/kakra/linux.git
-	branch = rebase-6.1/clearlinux-tweaks
+	branch = rebase-6.6/clearlinux-tweaks
 	shallow = true
-	pr = 24
+	pr = 28
 [submodule "pf-ksm"]
 	path = series/pf-ksm
 	url = https://github.com/kakra/linux.git
