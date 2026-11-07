@@ -10,12 +10,6 @@
 	branch = rebase-5.15/clearlinux-tweaks
 	shallow = true
 	pr = 17
-[submodule "bcache"]
-	path = series/bcache
-	url = https://github.com/kakra/linux.git
-	branch = rebase-5.15/bcache-updates
-	shallow = true
-	pr = 19
 [submodule "pf-ksm"]
 	path = series/pf-ksm
 	url = https://github.com/kakra/linux.git
