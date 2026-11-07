@@ -1,0 +1,94 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Sat, 18 Jul 2026 18:15:38 +0200
+Subject: [PATCH] btrfs: count unstable read health snapshots
+
+The read health sampler rejects a snapshot when the read IO count changes
+while reading the independently aggregated block statistics. Add optional
+counters for attempted samples and rejected unstable snapshots to quantify
+how often this race occurs in practice.
+
+Count an attempt only after claiming the paced update interval. Thus,
+unstable divided by checks gives the rejection rate among actual snapshot
+attempts. Expose both counters as trailing fields in read_stats, preserving
+the positions of the existing fields. The counters are diagnostic only and
+do not affect mirror selection.
+
+Keep this separate from the snapshot correctness fix so it can be dropped
+easily if measurements show that unstable snapshots are sufficiently rare.
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/sysfs.c   |  6 ++++--
+ fs/btrfs/volumes.c | 10 +++++++++-
+ fs/btrfs/volumes.h |  6 ++++++
+ 3 files changed, 19 insertions(+), 3 deletions(-)
+
+diff --git a/fs/btrfs/sysfs.c b/fs/btrfs/sysfs.c
+index c61afc502812a..8520d0981de4e 100644
+--- a/fs/btrfs/sysfs.c
++++ b/fs/btrfs/sysfs.c
+@@ -2280,13 +2280,15 @@ static ssize_t btrfs_devinfo_read_stats_show(struct kobject *kobj,
+ 	}
+ 
+ 	return scnprintf(buf, PAGE_SIZE,
+-			 "ios %lu wait %llu avg %llu age %llu ignored %llu health avg %llu ago %llu score %llu vetoed %llu overflow %llu\n",
++			 "ios %lu wait %llu avg %llu age %llu ignored %llu health avg %llu ago %llu score %llu vetoed %llu overflow %llu checks %llu unstable %llu\n",
+ 			 read_ios, read_wait, avg_wait,
+ 			 (u64)atomic64_read(&device->last_io_age),
+ 			 (u64)atomic64_read(&device->stripe_ignored),
+ 			 health_avg, health_ago, health_score,
+ 			 (u64)atomic64_read(&device->health_vetoed),
+-			 (u64)atomic64_read(&device->health_overflow));
++			 (u64)atomic64_read(&device->health_overflow),
++			 (u64)atomic64_read(&device->health_checks),
++			 (u64)atomic64_read(&device->health_unstable));
+ }
+ BTRFS_ATTR(devid, read_stats, btrfs_devinfo_read_stats_show);
+ #endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index 20ea41032aee7..96fb1064acd6a 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -6166,6 +6166,10 @@ static void btrfs_update_read_health(struct btrfs_chunk_map *map, int first,
+ 		    checked_jiffies)
+ 			continue;
+ 
++#ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
++		atomic64_inc(&device->health_checks);
++#endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
++
+ 		/*
+ 		 * ios is updated before nsecs. Bracket the wait read to reject a
+ 		 * completion that could pair newer wait time with an older io count.
+@@ -6173,8 +6177,12 @@ static void btrfs_update_read_health(struct btrfs_chunk_map *map, int first,
+ 		read_ios_before = part_stat_read(device->bdev, ios[READ]);
+ 		read_wait = part_stat_read(device->bdev, nsecs[READ]);
+ 		read_ios = part_stat_read(device->bdev, ios[READ]);
+-		if (read_ios_before != read_ios)
++		if (read_ios_before != read_ios) {
++#ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
++			atomic64_inc(&device->health_unstable);
++#endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
+ 			continue;
++		}
+ 
+ 		checked_ios = atomic64_read(&device->health_check_ios);
+ 		checked_wait = atomic64_read(&device->health_check_wait);
+diff --git a/fs/btrfs/volumes.h b/fs/btrfs/volumes.h
+index cdbe30dfc6dad..935bcf6f28c3d 100644
+--- a/fs/btrfs/volumes.h
++++ b/fs/btrfs/volumes.h
+@@ -214,6 +214,12 @@ struct btrfs_device {
+ 
+ 	/* store how often queue-adaptive still selected this slow device */
+ 	atomic64_t health_overflow;
++
++	/* store how often read health sampling was attempted */
++	atomic64_t health_checks;
++
++	/* store how often read io count changed while sampling health */
++	atomic64_t health_unstable;
+ #endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
+ 
+ #if defined(CONFIG_BTRFS_READ_POLICIES) || defined(CONFIG_BTRFS_PER_DEVICE_IO_STATS)

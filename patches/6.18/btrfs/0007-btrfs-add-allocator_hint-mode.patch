@@ -1,0 +1,231 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Sat, 11 Jul 2026 00:18:02 +0200
+Subject: [PATCH] btrfs: add allocator_hint mode
+
+When this mode is enabled, the chunk allocation policy is modified as
+follows:
+
+Each disk may have a different tag:
+- BTRFS_DEV_ALLOCATION_PREFERRED_METADATA
+- BTRFS_DEV_ALLOCATION_METADATA_ONLY
+- BTRFS_DEV_ALLOCATION_DATA_ONLY
+- BTRFS_DEV_ALLOCATION_PREFERRED_DATA (default)
+
+Where:
+- ALLOCATION_PREFERRED_X means that it is preferred to use this disk
+  for the X chunk type (the other type may be allowed when the space is
+  low)
+- ALLOCATION_X_ONLY means that it is used *only* for the X chunk type.
+  This means also that it is a preferred choice.
+
+Each time the allocator allocates a chunk of type X, first it takes the
+disks tagged as ALLOCATION_X_ONLY or ALLOCATION_PREFERRED_X.
+
+If the space is not enough, it uses also the disks tagged as
+ALLOCATION_METADATA_ONLY.
+
+If the space is not enough, it uses also the other disks, with the
+exception of the one marked as ALLOCATION_PREFERRED_Y, where Y is the
+other type of chunk (i.e. not X).
+
+Mixed data and metadata block groups intentionally ignore all hints. They
+cannot separate the two chunk classes and are outside the tiering use case
+targeted by this feature.
+
+The current type-based interface also has two known limitations: device
+replace does not copy hints to the target device, and hint updates are not
+serialized with concurrent chunk allocation.
+
+v2:
+- Document the mixed-block-group scope and the limitations of the
+  type-based interface.
+
+Co-authored-by: Goffredo Baroncelli <kreijack@inwind.it>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/Kconfig   |   9 ++++
+ fs/btrfs/volumes.c | 105 ++++++++++++++++++++++++++++++++++++++++++++-
+ fs/btrfs/volumes.h |   3 ++
+ 3 files changed, 116 insertions(+), 1 deletion(-)
+
+diff --git a/fs/btrfs/Kconfig b/fs/btrfs/Kconfig
+index 1a3617725ed9c..8bd52a31e1a08 100644
+--- a/fs/btrfs/Kconfig
++++ b/fs/btrfs/Kconfig
+@@ -99,6 +99,15 @@ config BTRFS_ALLOCATOR_HINTS
+ 	  still enough RAID mirror members but the allocation hints don't
+ 	  allow to allocate from specific devices.
+ 
++	  Mixed data and metadata block groups ignore all allocator hints.
++	  They cannot separate the two chunk classes and are outside the
++	  tiering use case targeted by this feature.
++
++	  Device replace does not copy the allocation hint to the target
++	  device. Reapply the hint after replacing a device. Hint updates are
++	  also not serialized with chunk allocation, so a concurrent new chunk
++	  may use either the old or the new setting.
++
+ 	  You are advised to watch your free space closely with btrfs tools
+ 	  instead of relying on df only.
+ 
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index 708b8d13184e0..c0a3043adc42f 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -184,6 +184,21 @@ enum btrfs_raid_types __attribute_const__ btrfs_bg_flags_to_raid_index(u64 flags
+ 	return BTRFS_BG_FLAG_TO_INDEX(profile);
+ }
+ 
++#ifdef CONFIG_BTRFS_ALLOCATOR_HINTS
++#define BTRFS_DEV_ALLOCATION_MASK ((1ULL << \
++		BTRFS_DEV_ALLOCATION_MASK_BIT_COUNT) - 1)
++#define BTRFS_DEV_ALLOCATION_MASK_COUNT (1ULL << \
++		BTRFS_DEV_ALLOCATION_MASK_BIT_COUNT)
++
++static const int alloc_hint_map[BTRFS_DEV_ALLOCATION_MASK_COUNT] = {
++	[BTRFS_DEV_ALLOCATION_DATA_ONLY] = -1,
++	[BTRFS_DEV_ALLOCATION_PREFERRED_DATA] = 0,
++	[BTRFS_DEV_ALLOCATION_PREFERRED_METADATA] = 1,
++	[BTRFS_DEV_ALLOCATION_METADATA_ONLY] = 2,
++	/* the other values are set to 0 */
++};
++#endif /* CONFIG_BTRFS_ALLOCATOR_HINTS */
++
+ const char *btrfs_bg_type_to_raid_name(u64 flags)
+ {
+ 	const int index = btrfs_bg_flags_to_raid_index(flags);
+@@ -5089,13 +5104,20 @@ static int btrfs_add_system_chunk(struct btrfs_fs_info *fs_info,
+ }
+ 
+ /*
+- * sort the devices in descending order by max_avail, total_avail
++ * sort the devices in descending order by alloc_hint (optional),
++ * max_avail, total_avail
+  */
+ static int btrfs_cmp_device_info(const void *a, const void *b)
+ {
+ 	const struct btrfs_device_info *di_a = a;
+ 	const struct btrfs_device_info *di_b = b;
+ 
++#ifdef CONFIG_BTRFS_ALLOCATOR_HINTS
++	if (di_a->alloc_hint > di_b->alloc_hint)
++		return -1;
++	if (di_a->alloc_hint < di_b->alloc_hint)
++		return 1;
++#endif /* CONFIG_BTRFS_ALLOCATOR_HINTS */
+ 	if (di_a->max_avail > di_b->max_avail)
+ 		return -1;
+ 	if (di_a->max_avail < di_b->max_avail)
+@@ -5303,16 +5325,97 @@ static int gather_device_info(struct btrfs_fs_devices *fs_devices,
+ 		devices_info[ndevs].max_avail = max_avail;
+ 		devices_info[ndevs].total_avail = total_avail;
+ 		devices_info[ndevs].dev = device;
++
++#ifdef CONFIG_BTRFS_ALLOCATOR_HINTS
++		if ((ctl->type & BTRFS_BLOCK_GROUP_DATA) &&
++		     (ctl->type & BTRFS_BLOCK_GROUP_METADATA)) {
++			/*
++			 * Mixed block groups cannot separate data and metadata
++			 * placement. Ignore all hints and retain normal free-space
++			 * ordering.
++			 */
++			devices_info[ndevs].alloc_hint = 0;
++		} else if (ctl->type & BTRFS_BLOCK_GROUP_DATA) {
++			int hint = device->type & BTRFS_DEV_ALLOCATION_MASK;
++
++			/*
++			 * skip BTRFS_DEV_METADATA_ONLY disks
++			 */
++			if (BTRFS_DEV_ALLOCATION_METADATA_ONLY == hint)
++				continue;
++			/*
++			 * if a data chunk must be allocated,
++			 * sort also by hint (data disk
++			 * higher priority)
++			 */
++			devices_info[ndevs].alloc_hint = -alloc_hint_map[hint];
++		} else { /* BTRFS_BLOCK_GROUP_METADATA */
++			int hint = device->type & BTRFS_DEV_ALLOCATION_MASK;
++
++			/*
++			 * skip BTRFS_DEV_DATA_ONLY disks
++			 */
++			if (BTRFS_DEV_ALLOCATION_DATA_ONLY == hint)
++				continue;
++			/*
++			 * if a metadata chunk must be allocated,
++			 * sort also by hint (metadata hint
++			 * higher priority)
++			 */
++			devices_info[ndevs].alloc_hint = alloc_hint_map[hint];
++		}
++#endif /* CONFIG_BTRFS_ALLOCATOR_HINTS */
++
+ 		++ndevs;
+ 	}
+ 	ctl->ndevs = ndevs;
+ 
++#ifdef CONFIG_BTRFS_ALLOCATOR_HINTS
++	/*
++	 * no devices available
++	 */
++	if (!ndevs)
++		return 0;
++#endif /* CONFIG_BTRFS_ALLOCATOR_HINTS */
++
+ 	/*
+ 	 * now sort the devices by hole size / available space
+ 	 */
+ 	sort(devices_info, ndevs, sizeof(struct btrfs_device_info),
+ 	     btrfs_cmp_device_info, NULL);
+ 
++#ifdef CONFIG_BTRFS_ALLOCATOR_HINTS
++	/*
++	 * select the minimum set of disks grouped by hint that
++	 * can host the chunk
++	 */
++	ndevs = 0;
++	while (ndevs < ctl->ndevs) {
++		int hint = devices_info[ndevs++].alloc_hint;
++		while (ndevs < ctl->ndevs &&
++		       devices_info[ndevs].alloc_hint == hint)
++				ndevs++;
++		if (ndevs >= ctl->devs_min)
++			break;
++	}
++
++	BUG_ON(ndevs > ctl->ndevs);
++	ctl->ndevs = ndevs;
++
++	/*
++	 * the next layers require the devices_info ordered by
++	 * max_avail. If we are returning two (or more) different
++	 * group of alloc_hint, this is not always true. So sort
++	 * these again.
++	 */
++
++	for (int i = 0 ; i < ndevs ; i++)
++		devices_info[i].alloc_hint = 0;
++
++	sort(devices_info, ndevs, sizeof(struct btrfs_device_info),
++	     btrfs_cmp_device_info, NULL);
++#endif /* CONFIG_BTRFS_ALLOCATOR_HINTS */
++
+ 	return 0;
+ }
+ 
+diff --git a/fs/btrfs/volumes.h b/fs/btrfs/volumes.h
+index aec7eaa48d30b..6ba641f9f1ecb 100644
+--- a/fs/btrfs/volumes.h
++++ b/fs/btrfs/volumes.h
+@@ -599,6 +599,9 @@ struct btrfs_device_info {
+ 	u64 dev_offset;
+ 	u64 max_avail;
+ 	u64 total_avail;
++#ifdef CONFIG_BTRFS_ALLOCATOR_HINTS
++	int alloc_hint;
++#endif /* CONFIG_BTRFS_ALLOCATOR_HINTS */
+ };
+ 
+ struct btrfs_raid_attr {

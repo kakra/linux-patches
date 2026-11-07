@@ -1,0 +1,87 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Sat, 11 Jul 2026 00:09:55 +0200
+Subject: [PATCH] btrfs: add allocator_hint for no allocation preferred
+
+This is useful where you want to avoid new allocations of chunks on a
+disk which is going to be removed from the pool anyways, e.g. due to
+bad blocks or because it's slow.
+
+The preference applies to non-mixed block groups. Mixed data and
+metadata block groups intentionally ignore allocator hints.
+
+v2:
+- Clarify that mixed block groups are outside the allocator-hints
+  scope.
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/Kconfig                | 3 +++
+ fs/btrfs/sysfs.c                | 1 +
+ fs/btrfs/volumes.c              | 6 +++++-
+ include/uapi/linux/btrfs_tree.h | 2 ++
+ 4 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/fs/btrfs/Kconfig b/fs/btrfs/Kconfig
+index 8bd52a31e1a08..2a0e481953ebe 100644
+--- a/fs/btrfs/Kconfig
++++ b/fs/btrfs/Kconfig
+@@ -129,6 +129,9 @@ config BTRFS_ALLOCATOR_HINTS
+ 	               chunks will ever be allocated from this device
+ 	  - type = 3 - allocate only data chunks from this ID, no meta data
+ 	               chunks will ever be allocated from this device
++	  - type = 4 - allocate any chunks from this device last, will never
++	               allocate any space from this device unless there isn't
++	               enough space on other devices
+ 
+ 	  If unsure, say N.
+ 
+diff --git a/fs/btrfs/sysfs.c b/fs/btrfs/sysfs.c
+index 9c2eade10cbb7..fa453a045a541 100644
+--- a/fs/btrfs/sysfs.c
++++ b/fs/btrfs/sysfs.c
+@@ -2151,6 +2151,7 @@ static bool btrfs_dev_allocation_hint_valid(u64 type)
+ 	case BTRFS_DEV_ALLOCATION_PREFERRED_METADATA:
+ 	case BTRFS_DEV_ALLOCATION_METADATA_ONLY:
+ 	case BTRFS_DEV_ALLOCATION_DATA_ONLY:
++	case BTRFS_DEV_ALLOCATION_PREFERRED_NONE:
+ 		return true;
+ 	default:
+ 		return false;
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index c0a3043adc42f..384dadba5f8cc 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -195,6 +195,7 @@ static const int alloc_hint_map[BTRFS_DEV_ALLOCATION_MASK_COUNT] = {
+ 	[BTRFS_DEV_ALLOCATION_PREFERRED_DATA] = 0,
+ 	[BTRFS_DEV_ALLOCATION_PREFERRED_METADATA] = 1,
+ 	[BTRFS_DEV_ALLOCATION_METADATA_ONLY] = 2,
++	[BTRFS_DEV_ALLOCATION_PREFERRED_NONE] = 99,
+ 	/* the other values are set to 0 */
+ };
+ #endif /* CONFIG_BTRFS_ALLOCATOR_HINTS */
+@@ -5362,7 +5363,10 @@ static int gather_device_info(struct btrfs_fs_devices *fs_devices,
+ 			 * sort also by hint (metadata hint
+ 			 * higher priority)
+ 			 */
+-			devices_info[ndevs].alloc_hint = alloc_hint_map[hint];
++			if (BTRFS_DEV_ALLOCATION_PREFERRED_NONE == hint)
++				devices_info[ndevs].alloc_hint = -alloc_hint_map[hint];
++			else
++				devices_info[ndevs].alloc_hint = alloc_hint_map[hint];
+ 		}
+ #endif /* CONFIG_BTRFS_ALLOCATOR_HINTS */
+ 
+diff --git a/include/uapi/linux/btrfs_tree.h b/include/uapi/linux/btrfs_tree.h
+index f004ab4341537..c32a3be41dc90 100644
+--- a/include/uapi/linux/btrfs_tree.h
++++ b/include/uapi/linux/btrfs_tree.h
+@@ -595,6 +595,8 @@ struct btrfs_node {
+ #define BTRFS_DEV_ALLOCATION_METADATA_ONLY	(2ULL)
+ /* only data chunk allowed */
+ #define BTRFS_DEV_ALLOCATION_DATA_ONLY		(3ULL)
++/* avoid chunk allocation if possible */
++#define BTRFS_DEV_ALLOCATION_PREFERRED_NONE	(4ULL)
+ /* 5..7 are unused values */
+ 
+ #endif /* CONFIG_BTRFS_ALLOCATOR_HINTS */

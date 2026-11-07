@@ -1,0 +1,396 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Wed, 8 Jul 2026 16:38:51 +0200
+Subject: [PATCH] btrfs: add queue-adaptive read policy
+
+Add a new RAID1 read policy, queue-adaptive, selected independently of
+the existing queue policy.
+
+queue picks the mirror with the fewest in-flight requests and uses
+last_io_age to break equal-depth ties. This works well on healthy
+devices but can still flap onto a latency-sick device: a stuck or slow
+device can show a lower in-flight count simply because its last request
+has not completed yet, so queue repeatedly picks it whenever the healthy
+device has one extra in-flight request.
+
+queue-adaptive keeps queue's in-flight comparison and shared age
+tie-break as the primary selector, but adds a coarse latency veto. For
+each read, it compares only the actual current mirror candidates' cached
+windowed latency averages. A device more than 4x worse than the best
+current peer is treated as slow for that call.
+
+The slow in-flight winner is rejected in favor of the best non-slow
+candidate only if its in-flight lead is not more than the guard margin.
+This keeps the latency guard from turning into a hard device ban: a slow
+mirror can still absorb overflow once the healthier peer's queue backs
+up enough.
+
+When per-device IO stats are enabled, read_stats also reports the age of
+the last successful health refresh, a health score relative to the
+lifetime average, how often a device was vetoed by this guard and how
+often it was still selected as slow because its in-flight lead exceeded
+the guard margin. These counters are diagnostic only and do not feed
+back into selection.
+
+v2:
+- Refresh health samples only while queue-adaptive is active, avoiding
+  block-stat and division overhead for all other read policies. The ago
+  field exposes when the retained sample was last refreshed.
+- Skip missing mirrors before reading health or in-flight state so the
+  policy remains safe on degraded arrays.
+- Clarify that score compares the current window with the device's own
+  lifetime history and is not part of the peer-relative decision.
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/sysfs.c   |  43 ++++++++++---
+ fs/btrfs/volumes.c | 146 +++++++++++++++++++++++++++++++++++++++++----
+ fs/btrfs/volumes.h |  30 +++++++++-
+ 3 files changed, 200 insertions(+), 19 deletions(-)
+
+diff --git a/fs/btrfs/sysfs.c b/fs/btrfs/sysfs.c
+index cd87dd6057ef6..c61afc502812a 100644
+--- a/fs/btrfs/sysfs.c
++++ b/fs/btrfs/sysfs.c
+@@ -11,6 +11,10 @@
+ #include <linux/bug.h>
+ #include <linux/list.h>
+ #include <crypto/hash.h>
++#ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
++#include <linux/jiffies.h>
++#include <linux/part_stat.h>
++#endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
+ #include "messages.h"
+ #include "ctree.h"
+ #include "discard.h"
+@@ -26,10 +30,6 @@
+ #include "fs.h"
+ #include "accessors.h"
+ 
+-#ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
+-#include <linux/part_stat.h>
+-#endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
+-
+ /*
+  * Structure name                       Path
+  * --------------------------------------------------------------------------
+@@ -1326,6 +1326,7 @@ static const char *btrfs_read_policy_name[] = {
+ #ifdef CONFIG_BTRFS_READ_POLICIES
+ 	"round-robin",
+ 	"queue",
++	"queue-adaptive",
+ 	"devid",
+ #endif /* CONFIG_BTRFS_READ_POLICIES */
+ };
+@@ -1342,7 +1343,7 @@ char *btrfs_get_mod_read_policy(void)
+ /* Set perms to 0, disable /sys/module/btrfs/parameter/read_policy interface. */
+ module_param(read_policy, charp, 0);
+ MODULE_PARM_DESC(read_policy,
+-"Global read policy: pid (default), round-robin[:<min_contig_read>], queue, devid[:<devid>]");
++"Global read policy: pid (default), round-robin[:<min_contig_read>], queue, queue-adaptive, devid[:<devid>]");
+ #endif /* CONFIG_BTRFS_READ_POLICIES */
+ 
+ int btrfs_read_policy_to_enum(const char *str, s64 *value_ret)
+@@ -2247,17 +2248,45 @@ static ssize_t btrfs_devinfo_read_stats_show(struct kobject *kobj,
+ 	unsigned long read_ios = device->bdev ?
+ 		part_stat_read(device->bdev, ios[READ]) : 0;
+ 	u64 health_avg = (u64)atomic64_read(&device->health_avg_ns);
++	unsigned long health_avg_jiffies = READ_ONCE(device->health_avg_jiffies);
+ 
+ 	u64 avg_wait = 0;
++	u64 health_ago = 0;
++	u64 health_score = 0;
+ 	if (read_wait && read_ios && read_wait >= read_ios)
+ 		avg_wait = div_u64(read_wait, read_ios);
++	if (health_avg_jiffies)
++		health_ago = (jiffies - health_avg_jiffies) / HZ;
++	/*
++	 * "score" is avg_wait (this device's lifetime avg) relative to
++	 * health_avg (its current short window), as a percentage: ~100 means
++	 * "behaving like its own history", higher means "currently healthier
++	 * than its own history". This mixes two different time bases on
++	 * purpose - it is a quick, human-readable "how is this device doing
++	 * right now compared to itself" signal, which vetoed/overflow alone
++	 * don't give you at a glance. It intentionally does NOT reflect
++	 * queue-adaptive's actual peer-relative veto decision (see
++	 * btrfs_read_queue_adaptive() in volumes.c, which compares
++	 * health_avg_ns only against other *current* mirror candidates, never
++	 * against this device's own lifetime avg) - once the read policies
++	 * are more settled, some of these diagnostic fields may be trimmed or
++	 * split into their own sysfs attributes.
++	 */
++	if (health_avg) {
++		if (avg_wait > U64_MAX / 100)
++			health_score = U64_MAX;
++		else
++			health_score = div64_u64(avg_wait * 100, health_avg);
++	}
+ 
+ 	return scnprintf(buf, PAGE_SIZE,
+-			 "ios %lu wait %llu avg %llu age %llu ignored %llu health avg %llu\n",
++			 "ios %lu wait %llu avg %llu age %llu ignored %llu health avg %llu ago %llu score %llu vetoed %llu overflow %llu\n",
+ 			 read_ios, read_wait, avg_wait,
+ 			 (u64)atomic64_read(&device->last_io_age),
+ 			 (u64)atomic64_read(&device->stripe_ignored),
+-			 health_avg);
++			 health_avg, health_ago, health_score,
++			 (u64)atomic64_read(&device->health_vetoed),
++			 (u64)atomic64_read(&device->health_overflow));
+ }
+ BTRFS_ATTR(devid, read_stats, btrfs_devinfo_read_stats_show);
+ #endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index 984200f974f2c..2ae81855e3dce 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -35,11 +35,9 @@
+ #include "raid-stripe-tree.h"
+ 
+ #if defined(CONFIG_BTRFS_READ_POLICIES) || defined(CONFIG_BTRFS_PER_DEVICE_IO_STATS)
++#include <linux/jiffies.h>
+ #include <linux/part_stat.h>
+ #endif /* CONFIG_BTRFS_READ_POLICIES || CONFIG_BTRFS_PER_DEVICE_IO_STATS */
+-#ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
+-#include <linux/jiffies.h>
+-#endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
+ 
+ #define BTRFS_BLOCK_GROUP_STRIPE_MASK	(BTRFS_BLOCK_GROUP_RAID0 | \
+ 					 BTRFS_BLOCK_GROUP_RAID10 | \
+@@ -6122,9 +6120,8 @@ static int btrfs_read_earliest(struct btrfs_fs_info *fs_info,
+ 	return best_stripe;
+ }
+ 
+-#endif /* CONFIG_BTRFS_READ_POLICIES */
++#define BTRFS_READ_QUEUE_ADAPTIVE_GUARD_MARGIN	2ULL
+ 
+-#ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
+ #define BTRFS_READ_HEALTH_RECHECK_INTERVAL	HZ
+ #define BTRFS_READ_HEALTH_MIN_SAMPLE_IOS	256ULL
+ 
+@@ -6132,6 +6129,15 @@ static int btrfs_read_earliest(struct btrfs_fs_info *fs_info,
+  * Refresh the cached windowed avg read latency for the current candidates.
+  * The avg is a delta against the previous checkpoint, not a lifetime average,
+  * so unrelated bulk reads can only skew the current window.
++ *
++ * Only queue-adaptive (btrfs_read_queue_adaptive(), below) calls this, so it
++ * lives right above its one caller instead of needing a forward declaration.
++ * It stays gated by CONFIG_BTRFS_READ_POLICIES alone (this whole block
++ * already is), matching that caller's own requirement - not the broader
++ * OR-guard the health_* struct fields use, since sysfs.c's read_stats
++ * display still needs those fields to exist whenever
++ * CONFIG_BTRFS_PER_DEVICE_IO_STATS is on, independent of whether
++ * CONFIG_BTRFS_READ_POLICIES (and therefore queue-adaptive) is enabled.
+  */
+ static void btrfs_update_read_health(struct btrfs_chunk_map *map, int first,
+ 				     int num_stripes)
+@@ -6187,11 +6193,129 @@ static void btrfs_update_read_health(struct btrfs_chunk_map *map, int first,
+ 		atomic64_set(&device->health_avg_ns, div64_u64(delta_wait, delta_ios));
+ 		atomic64_set(&device->health_check_ios, read_ios);
+ 		atomic64_set(&device->health_check_wait, read_wait);
++		WRITE_ONCE(device->health_avg_jiffies, jiffies);
+ 	}
+ }
+-#endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
+ 
+-#ifdef CONFIG_BTRFS_READ_POLICIES
++/*
++ * btrfs_read_queue_adaptive
++ *
++ * Select the stripe with the lowest in-flight request count, exactly
++ * like btrfs_read_earliest(), with ties broken by device->last_io_age
++ * (most-overdue device wins) so healthy/idle mirrors still rotate fairly
++ * instead of collapsing onto the first stripe - the same tie-break
++ * btrfs_read_earliest() itself now uses via
++ * btrfs_queue_read_candidate_better(), so this is not a behavioral
++ * difference from plain queue.
++ *
++ * The one behavioral difference from plain queue: candidates are
++ * classified "slow" fresh, right here, by comparing each candidate's
++ * cached device->health_avg_ns against the best (lowest) value among
++ * only the *actual current* stripe candidates - never a cached verdict,
++ * so it can never be stale from a different mirror pairing on a larger
++ * pool. If the in-flight winner is not derived-slow, done. If it is,
++ * it's only trusted when its in-flight lead over the best non-slow
++ * candidate is MORE than BTRFS_READ_QUEUE_ADAPTIVE_GUARD_MARGIN
++ * requests; otherwise the best non-slow candidate is used instead. This
++ * is a coarse veto, not the primary selector - on an all-healthy,
++ * same-tier array, no candidate is ever derived-slow and behavior is
++ * identical to queue. On a mixed-tier array (e.g. HDD mirrored against
++ * SSD) the slower device is durably derived-slow and mostly avoided,
++ * but can still absorb overflow once the faster candidate's queue backs
++ * up past the guard margin.
++ */
++static int btrfs_read_queue_adaptive(struct btrfs_fs_info *fs_info,
++				      struct btrfs_chunk_map *map, int first,
++				      int num_stripes)
++{
++	u64 avg[BTRFS_RAID1_MAX_MIRRORS];
++	u64 best_avg = U64_MAX;
++	u64 sick_threshold;
++	u64 best_inflight = U64_MAX;
++	u64 best_age = 0;
++	int best_stripe = first;
++	bool best_slow;
++	u64 best_healthy_inflight = U64_MAX;
++	u64 best_healthy_age = 0;
++	int best_healthy_stripe = -1;
++
++	btrfs_update_read_health(map, first, num_stripes);
++
++	/*
++	 * Gather this stripe's actual current candidates' cached avgs and find
++	 * the best among only them - this is the peer-relative derivation, done
++	 * fresh every call.
++	 */
++	for (int index = first; index < first + num_stripes; index++) {
++		struct btrfs_device *device = map->stripes[index].dev;
++		u64 my_avg;
++
++		if (!device->bdev) {
++			avg[index - first] = 0;
++			continue;
++		}
++
++		my_avg = atomic64_read(&device->health_avg_ns);
++		avg[index - first] = my_avg;
++		best_avg = min_not_zero(best_avg, my_avg);
++	}
++
++	/*
++	 * Overflow-safe threshold: saturate instead of wrapping in the
++	 * practically-impossible case that best_avg is already close to
++	 * U64_MAX; best_avg == U64_MAX (no candidate has data yet) also
++	 * saturates here, so nothing can be derived-slow without data.
++	 */
++	if (best_avg == U64_MAX || best_avg > U64_MAX / BTRFS_READ_HEALTH_SICK_MULTIPLIER)
++		sick_threshold = U64_MAX;
++	else
++		sick_threshold = best_avg * BTRFS_READ_HEALTH_SICK_MULTIPLIER;
++
++	for (int index = first; index < first + num_stripes; index++) {
++		struct btrfs_device *device = map->stripes[index].dev;
++		u64 in_flight;
++		u64 age = atomic64_read(&device->last_io_age);
++		u64 my_avg = avg[index - first];
++		bool slow = (my_avg != 0 && my_avg > sick_threshold);
++
++		if (!device->bdev)
++			continue;
++
++		in_flight = part_in_flight(device->bdev);
++		if (btrfs_queue_read_candidate_better(in_flight, age,
++						      best_inflight,
++						      best_age)) {
++			best_inflight = in_flight;
++			best_age = age;
++			best_stripe = index;
++		}
++		if (!slow &&
++		    btrfs_queue_read_candidate_better(in_flight, age,
++						      best_healthy_inflight,
++						      best_healthy_age)) {
++			best_healthy_inflight = in_flight;
++			best_healthy_age = age;
++			best_healthy_stripe = index;
++		}
++	}
++
++	best_slow = (avg[best_stripe - first] != 0 &&
++		     avg[best_stripe - first] > sick_threshold);
++	if (!best_slow)
++		return best_stripe;
++	if (best_healthy_stripe < 0)
++		return best_stripe; /* every candidate derived-slow, no alternative */
++	if (best_healthy_inflight <= best_inflight + BTRFS_READ_QUEUE_ADAPTIVE_GUARD_MARGIN) {
++#ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
++		atomic64_inc(&map->stripes[best_stripe].dev->health_vetoed);
++#endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
++		return best_healthy_stripe; /* slow device's lead is not more than the margin */
++	}
++#ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
++	atomic64_inc(&map->stripes[best_stripe].dev->health_overflow);
++#endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
++	return best_stripe; /* slow device's lead is more than the margin - trust it anyway */
++}
+ 
+ static int btrfs_read_preferred(struct btrfs_chunk_map *map, int first, int num_stripes)
+ {
+@@ -6293,10 +6417,6 @@ static int find_live_mirror(struct btrfs_fs_info *fs_info,
+ 	}
+ #endif /* CONFIG_BTRFS_READ_POLICIES || CONFIG_BTRFS_PER_DEVICE_IO_STATS */
+ 
+-#ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
+-	btrfs_update_read_health(map, first, num_stripes);
+-#endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
+-
+ 	switch (policy) {
+ 	default:
+ 		/* Shouldn't happen, just warn and use pid instead of failing */
+@@ -6315,6 +6435,10 @@ static int find_live_mirror(struct btrfs_fs_info *fs_info,
+ 		preferred_mirror = btrfs_read_earliest(fs_info, map, first,
+ 						       num_stripes);
+ 		break;
++	case BTRFS_READ_POLICY_QUEUE_ADAPTIVE:
++		preferred_mirror = btrfs_read_queue_adaptive(fs_info, map, first,
++							      num_stripes);
++		break;
+ 	case BTRFS_READ_POLICY_DEVID:
+ 		preferred_mirror = btrfs_read_preferred(map, first, num_stripes);
+ 		break;
+diff --git a/fs/btrfs/volumes.h b/fs/btrfs/volumes.h
+index cbe6d16072166..cdbe30dfc6dad 100644
+--- a/fs/btrfs/volumes.h
++++ b/fs/btrfs/volumes.h
+@@ -209,6 +209,14 @@ struct btrfs_device {
+ 	/* store how often a stripe has been ignored as a read candidate */
+ 	atomic64_t stripe_ignored;
+ 
++	/* store how often queue-adaptive rejected this device due to latency */
++	atomic64_t health_vetoed;
++
++	/* store how often queue-adaptive still selected this slow device */
++	atomic64_t health_overflow;
++#endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
++
++#if defined(CONFIG_BTRFS_READ_POLICIES) || defined(CONFIG_BTRFS_PER_DEVICE_IO_STATS)
+ 	/*
+ 	 * Cached windowed avg read latency (nsec/io), refreshed from a delta
+ 	 * against health_check_ios/health_check_wait, not from the lifetime
+@@ -223,9 +231,20 @@ struct btrfs_device {
+ 
+ 	/* jiffies at the last health refresh attempt. */
+ 	unsigned long health_check_jiffies;
+-#endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
++
++	/* jiffies at the last successful health_avg_ns update. */
++	unsigned long health_avg_jiffies;
++#endif /* CONFIG_BTRFS_READ_POLICIES || CONFIG_BTRFS_PER_DEVICE_IO_STATS */
+ };
+ 
++#ifdef CONFIG_BTRFS_READ_POLICIES
++/*
++ * How many times worse than the best current peer's windowed avg read
++ * latency counts as anomalous for queue-adaptive.
++ */
++#define BTRFS_READ_HEALTH_SICK_MULTIPLIER	4ULL
++#endif /* CONFIG_BTRFS_READ_POLICIES */
++
+ /*
+  * Block group or device which contains an active swapfile. Used for preventing
+  * unsafe operations while a swapfile is active.
+@@ -338,6 +357,15 @@ enum btrfs_read_policy {
+ 	BTRFS_READ_POLICY_RR,
+ 	/* Read from the device with the least in-flight requests */
+ 	BTRFS_READ_POLICY_QUEUE,
++	/*
++	 * Like QUEUE, but veto picking a device whose cached windowed avg
++	 * read latency is durably worse than its current mirror peers'
++	 * (derived fresh at selection time, never cached as a verdict -
++	 * whether the cause is malfunction or simply a slower device tier,
++	 * e.g. HDD mirrored against SSD), unless its in-flight lead is large
++	 * enough to trust anyway.
++	 */
++	BTRFS_READ_POLICY_QUEUE_ADAPTIVE,
+ 	/* Read from a specific device. */
+ 	BTRFS_READ_POLICY_DEVID,
+ #endif /* CONFIG_BTRFS_READ_POLICIES */

@@ -1,0 +1,79 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Thu, 9 Jul 2026 12:35:14 +0200
+Subject: [PATCH] btrfs: move age io stat out of
+ CONFIG_BTRFS_PER_DEVICE_IO_STATS
+
+In a follow up commit, we will be using the age counter as a tie break
+if two candidate devices currently have the same amount of inflight
+requests pending. To use this effectively, the age counter must always
+exist, no matter the io stats configuration.
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/volumes.c | 13 +++++++++----
+ fs/btrfs/volumes.h |  2 +-
+ 2 files changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index 809cab76ef020..ab9c01fafbaec 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -6187,14 +6187,17 @@ static int find_live_mirror(struct btrfs_fs_info *fs_info,
+ 	else
+ 		num_stripes = map->num_stripes;
+ 
+-#ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
++#if defined(CONFIG_BTRFS_READ_POLICIES) || defined(CONFIG_BTRFS_PER_DEVICE_IO_STATS)
+ 	/* age each possible stripe by 1 IO */
+ 	for (int i = first; i < first + num_stripes; i++) {
+ 		struct btrfs_device *device = map->stripes[i].dev;
++
+ 		atomic64_inc(&device->last_io_age);
++#ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
+ 		atomic64_inc(&device->stripe_ignored);
+-	}
+ #endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
++	}
++#endif /* CONFIG_BTRFS_READ_POLICIES || CONFIG_BTRFS_PER_DEVICE_IO_STATS */
+ 
+ 	switch (policy) {
+ 	default:
+@@ -6246,17 +6249,19 @@ static int find_live_mirror(struct btrfs_fs_info *fs_info,
+ 	}
+ 
+ out:
+-#ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
++#if defined(CONFIG_BTRFS_READ_POLICIES) || defined(CONFIG_BTRFS_PER_DEVICE_IO_STATS)
+ 	do {
+ 		struct btrfs_device *preferred_device = map->stripes[preferred_mirror].dev;
+ 
+ 		/* reset age of selected stripe */
+ 		atomic64_set(&preferred_device->last_io_age, 0);
+ 
++#ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
+ 		/* do not count ignores for the selected stripe */
+ 		atomic64_dec(&preferred_device->stripe_ignored);
+-	} while (0);
+ #endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
++	} while (0);
++#endif /* CONFIG_BTRFS_READ_POLICIES || CONFIG_BTRFS_PER_DEVICE_IO_STATS */
+ 
+ 	/* we couldn't find one that doesn't fail.  Just return something
+ 	 * and the io error handling code will clean up eventually
+diff --git a/fs/btrfs/volumes.h b/fs/btrfs/volumes.h
+index eae340fd068f7..766af038dc547 100644
+--- a/fs/btrfs/volumes.h
++++ b/fs/btrfs/volumes.h
+@@ -202,10 +202,10 @@ struct btrfs_device {
+ 	/* Bandwidth limit for scrub, in bytes */
+ 	u64 scrub_speed_max;
+ 
+-#ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
+ 	/* store an age of last read access */
+ 	atomic64_t last_io_age;
+ 
++#ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
+ 	/* store how often a stripe has been ignored as a read candidate */
+ 	atomic64_t stripe_ignored;
+ #endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */

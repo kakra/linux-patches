@@ -1,0 +1,109 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Fri, 10 Jul 2026 23:51:46 +0200
+Subject: [PATCH] btrfs: add allocator_hint to disable allocation completely
+
+This is useful where you want to prevent new allocations of chunks to a
+set of multiple disks which are going to be removed from the pool. This
+acts as a multiple `btrfs dev remove` on steroids that can remove
+multiple disks in parallel without moving data to disks which would be
+removed in the next round. In such cases, it will avoid moving the same
+data multiple times, and thus avoid placing it on potentially bad
+disks.
+
+The restriction applies to non-mixed block groups. Mixed data and
+metadata block groups intentionally ignore allocator hints. Device
+replace does not copy the hint to the target device, so reapply it
+after replacement.
+
+v2:
+- Clarify the mixed-block-group scope and device replace behavior.
+
+Thanks to @Zygo for the explanation and suggestion.
+
+Link: https://github.com/kdave/btrfs-progs/issues/907#issuecomment-2520897104
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/Kconfig                |  3 +++
+ fs/btrfs/sysfs.c                |  1 +
+ fs/btrfs/volumes.c              | 11 +++++++++++
+ include/uapi/linux/btrfs_tree.h |  4 +++-
+ 4 files changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/fs/btrfs/Kconfig b/fs/btrfs/Kconfig
+index 2a0e481953ebe..71d7d4b12dc6e 100644
+--- a/fs/btrfs/Kconfig
++++ b/fs/btrfs/Kconfig
+@@ -132,6 +132,9 @@ config BTRFS_ALLOCATOR_HINTS
+ 	  - type = 4 - allocate any chunks from this device last, will never
+ 	               allocate any space from this device unless there isn't
+ 	               enough space on other devices
++	  - type = 5 - never allocate any new non-mixed chunks, useful when
++	               putting a device out of use and to avoid redundant chunk
++	               writes during balance/replace
+ 
+ 	  If unsure, say N.
+ 
+diff --git a/fs/btrfs/sysfs.c b/fs/btrfs/sysfs.c
+index fa453a045a541..f6d5846e46837 100644
+--- a/fs/btrfs/sysfs.c
++++ b/fs/btrfs/sysfs.c
+@@ -2152,6 +2152,7 @@ static bool btrfs_dev_allocation_hint_valid(u64 type)
+ 	case BTRFS_DEV_ALLOCATION_METADATA_ONLY:
+ 	case BTRFS_DEV_ALLOCATION_DATA_ONLY:
+ 	case BTRFS_DEV_ALLOCATION_PREFERRED_NONE:
++	case BTRFS_DEV_ALLOCATION_NONE_ONLY:
+ 		return true;
+ 	default:
+ 		return false;
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index 384dadba5f8cc..44615a9573ec5 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -191,6 +191,7 @@ enum btrfs_raid_types __attribute_const__ btrfs_bg_flags_to_raid_index(u64 flags
+ 		BTRFS_DEV_ALLOCATION_MASK_BIT_COUNT)
+ 
+ static const int alloc_hint_map[BTRFS_DEV_ALLOCATION_MASK_COUNT] = {
++	[BTRFS_DEV_ALLOCATION_NONE_ONLY] = -99,
+ 	[BTRFS_DEV_ALLOCATION_DATA_ONLY] = -1,
+ 	[BTRFS_DEV_ALLOCATION_PREFERRED_DATA] = 0,
+ 	[BTRFS_DEV_ALLOCATION_PREFERRED_METADATA] = 1,
+@@ -5344,6 +5345,11 @@ static int gather_device_info(struct btrfs_fs_devices *fs_devices,
+ 			 */
+ 			if (BTRFS_DEV_ALLOCATION_METADATA_ONLY == hint)
+ 				continue;
++			/*
++			 * skip BTRFS_DEV_NONE_ONLY disks
++			 */
++			if (BTRFS_DEV_ALLOCATION_NONE_ONLY == hint)
++				continue;
+ 			/*
+ 			 * if a data chunk must be allocated,
+ 			 * sort also by hint (data disk
+@@ -5358,6 +5364,11 @@ static int gather_device_info(struct btrfs_fs_devices *fs_devices,
+ 			 */
+ 			if (BTRFS_DEV_ALLOCATION_DATA_ONLY == hint)
+ 				continue;
++			/*
++			 * skip BTRFS_DEV_NONE_ONLY disks
++			 */
++			if (BTRFS_DEV_ALLOCATION_NONE_ONLY == hint)
++				continue;
+ 			/*
+ 			 * if a metadata chunk must be allocated,
+ 			 * sort also by hint (metadata hint
+diff --git a/include/uapi/linux/btrfs_tree.h b/include/uapi/linux/btrfs_tree.h
+index c32a3be41dc90..8a6087d6e967a 100644
+--- a/include/uapi/linux/btrfs_tree.h
++++ b/include/uapi/linux/btrfs_tree.h
+@@ -597,7 +597,9 @@ struct btrfs_node {
+ #define BTRFS_DEV_ALLOCATION_DATA_ONLY		(3ULL)
+ /* avoid chunk allocation if possible */
+ #define BTRFS_DEV_ALLOCATION_PREFERRED_NONE	(4ULL)
+-/* 5..7 are unused values */
++/* deny chunk allocation */
++#define BTRFS_DEV_ALLOCATION_NONE_ONLY	        (5ULL)
++/* 6..7 are unused values */
+ 
+ #endif /* CONFIG_BTRFS_ALLOCATOR_HINTS */
+ 

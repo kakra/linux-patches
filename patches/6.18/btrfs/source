@@ -1,0 +1,5 @@
+branch=rebase-6.18/btrfs-patches
+base=v6.18
+head=7b0cb24d48bd3cd9255d96e1d8b45024f182485d
+date=2026-08-30
+pr=40

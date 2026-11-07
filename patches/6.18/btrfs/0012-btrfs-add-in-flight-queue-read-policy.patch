@@ -1,0 +1,132 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Fri, 25 Apr 2025 21:46:52 +0200
+Subject: [PATCH] btrfs: add in-flight queue read policy
+
+Select the preferred stripe based on the mirror with the least
+in-flight requests.
+
+v2:
+- Skip missing mirrors before reading their in-flight statistics so the
+  policy remains safe on degraded arrays.
+- Initialize the fallback stripe from the current mirror set instead of
+  assuming stripe zero.
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/sysfs.c   |  3 ++-
+ fs/btrfs/volumes.c | 52 ++++++++++++++++++++++++++++++++++++++++++++++
+ fs/btrfs/volumes.h |  2 ++
+ 3 files changed, 56 insertions(+), 1 deletion(-)
+
+diff --git a/fs/btrfs/sysfs.c b/fs/btrfs/sysfs.c
+index 2a44a66ecc3f6..e0bd2d3898fac 100644
+--- a/fs/btrfs/sysfs.c
++++ b/fs/btrfs/sysfs.c
+@@ -1325,6 +1325,7 @@ static const char *btrfs_read_policy_name[] = {
+ 	"pid",
+ #ifdef CONFIG_BTRFS_READ_POLICIES
+ 	"round-robin",
++	"queue",
+ 	"devid",
+ #endif /* CONFIG_BTRFS_READ_POLICIES */
+ };
+@@ -1341,7 +1342,7 @@ char *btrfs_get_mod_read_policy(void)
+ /* Set perms to 0, disable /sys/module/btrfs/parameter/read_policy interface. */
+ module_param(read_policy, charp, 0);
+ MODULE_PARM_DESC(read_policy,
+-"Global read policy: pid (default), round-robin[:<min_contig_read>], devid[:<devid>]");
++"Global read policy: pid (default), round-robin[:<min_contig_read>], queue, devid[:<devid>]");
+ #endif /* CONFIG_BTRFS_READ_POLICIES */
+ 
+ int btrfs_read_policy_to_enum(const char *str, s64 *value_ret)
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index c9da8d2661108..809cab76ef020 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -34,6 +34,10 @@
+ #include "super.h"
+ #include "raid-stripe-tree.h"
+ 
++#ifdef CONFIG_BTRFS_READ_POLICIES
++#include <linux/part_stat.h>
++#endif /* CONFIG_BTRFS_READ_POLICIES */
++
+ #define BTRFS_BLOCK_GROUP_STRIPE_MASK	(BTRFS_BLOCK_GROUP_RAID0 | \
+ 					 BTRFS_BLOCK_GROUP_RAID10 | \
+ 					 BTRFS_BLOCK_GROUP_RAID56_MASK)
+@@ -6051,6 +6055,50 @@ unsigned long btrfs_full_stripe_len(struct btrfs_fs_info *fs_info,
+ }
+ 
+ #ifdef CONFIG_BTRFS_READ_POLICIES
++static unsigned int part_in_flight(struct block_device *part)
++{
++	unsigned int inflight = 0;
++	int cpu;
++
++	for_each_possible_cpu(cpu) {
++		inflight += part_stat_local_read_cpu(part, in_flight[READ], cpu) +
++			    part_stat_local_read_cpu(part, in_flight[WRITE], cpu);
++	}
++	if ((int)inflight < 0)
++		inflight = 0;
++
++	return inflight;
++}
++
++/*
++ * btrfs_earliest_stripe
++ *
++ * Select a stripe from the device with shortest in-flight requests.
++ */
++static int btrfs_read_earliest(struct btrfs_fs_info *fs_info,
++			       struct btrfs_chunk_map *map, int first,
++	int num_stripes)
++{
++	u64 best_in_flight = U64_MAX;
++	int best_stripe = first;
++
++	for (int index = first; index < first + num_stripes; index++) {
++		struct btrfs_device *device = map->stripes[index].dev;
++		u64 in_flight;
++
++		if (!device->bdev)
++			continue;
++
++		in_flight = part_in_flight(device->bdev);
++		if (best_in_flight > in_flight) {
++			best_in_flight = in_flight;
++			best_stripe = index;
++		}
++	}
++
++	return best_stripe;
++}
++
+ static int btrfs_read_preferred(struct btrfs_chunk_map *map, int first, int num_stripes)
+ {
+ 	for (int index = first; index < first + num_stripes; index++) {
+@@ -6162,6 +6210,10 @@ static int find_live_mirror(struct btrfs_fs_info *fs_info,
+ 	case BTRFS_READ_POLICY_RR:
+ 		preferred_mirror = btrfs_read_rr(map, first, num_stripes);
+ 		break;
++	case BTRFS_READ_POLICY_QUEUE:
++		preferred_mirror = btrfs_read_earliest(fs_info, map, first,
++						       num_stripes);
++		break;
+ 	case BTRFS_READ_POLICY_DEVID:
+ 		preferred_mirror = btrfs_read_preferred(map, first, num_stripes);
+ 		break;
+diff --git a/fs/btrfs/volumes.h b/fs/btrfs/volumes.h
+index 5d7bc046635b9..eae340fd068f7 100644
+--- a/fs/btrfs/volumes.h
++++ b/fs/btrfs/volumes.h
+@@ -321,6 +321,8 @@ enum btrfs_read_policy {
+ #ifdef CONFIG_BTRFS_READ_POLICIES
+ 	/* Balancing RAID1 reads across all striped devices (round-robin). */
+ 	BTRFS_READ_POLICY_RR,
++	/* Read from the device with the least in-flight requests */
++	BTRFS_READ_POLICY_QUEUE,
+ 	/* Read from a specific device. */
+ 	BTRFS_READ_POLICY_DEVID,
+ #endif /* CONFIG_BTRFS_READ_POLICIES */

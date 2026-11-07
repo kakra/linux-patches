@@ -1,0 +1,203 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Thu, 9 Jul 2026 13:10:10 +0200
+Subject: [PATCH] btrfs: add read latency health stats to per-device io read
+ stats
+
+Track a windowed average read latency per device and expose it through
+the per-device read_stats file.
+
+The health value is updated from block-layer read ios and wait-time
+deltas in find_live_mirror(), independently of any adaptive read policy.
+This lets read_stats diagnose latency-sick devices before
+queue-adaptive selection is introduced.
+
+The patch deliberately does not derive a slow flag from the per-device
+stats. Whether a device is slow depends on the actual mirror candidates
+for a read and must be decided later in the queue-adaptive selection
+path.
+
+v2:
+- Leave missing mirrors unclassified instead of dereferencing a NULL
+  block device on degraded arrays.
+- Pace each device independently so one candidate cannot reset another
+  candidate's sampling interval.
+- Claim each update interval with cmpxchg() so concurrent readers cannot
+  race or move the statistics checkpoint backwards.
+
+v3:
+- Switch health_avg_ns, health_check_ios and health_check_wait to
+  atomic64_t to avoid torn 64-bit reads/writes on 32-bit architectures,
+  matching the other per-device counters already using atomic64_t.
+
+v4:
+- Bracket the wait-time read with IO-count reads and reject a sample if
+  the count changes, avoiding an inconsistent snapshot that could
+  inflate the health average.
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/sysfs.c   |  7 ++--
+ fs/btrfs/volumes.c | 82 ++++++++++++++++++++++++++++++++++++++++++++--
+ fs/btrfs/volumes.h | 15 +++++++++
+ 3 files changed, 100 insertions(+), 4 deletions(-)
+
+diff --git a/fs/btrfs/sysfs.c b/fs/btrfs/sysfs.c
+index e0bd2d3898fac..cd87dd6057ef6 100644
+--- a/fs/btrfs/sysfs.c
++++ b/fs/btrfs/sysfs.c
+@@ -2246,15 +2246,18 @@ static ssize_t btrfs_devinfo_read_stats_show(struct kobject *kobj,
+ 	u64 read_wait = device->bdev ? part_stat_read(device->bdev, nsecs[READ]) : 0;
+ 	unsigned long read_ios = device->bdev ?
+ 		part_stat_read(device->bdev, ios[READ]) : 0;
++	u64 health_avg = (u64)atomic64_read(&device->health_avg_ns);
+ 
+ 	u64 avg_wait = 0;
+ 	if (read_wait && read_ios && read_wait >= read_ios)
+ 		avg_wait = div_u64(read_wait, read_ios);
+ 
+-	return scnprintf(buf, PAGE_SIZE, "ios %lu wait %llu avg %llu age %llu ignored %llu\n",
++	return scnprintf(buf, PAGE_SIZE,
++			 "ios %lu wait %llu avg %llu age %llu ignored %llu health avg %llu\n",
+ 			 read_ios, read_wait, avg_wait,
+ 			 (u64)atomic64_read(&device->last_io_age),
+-			 (u64)atomic64_read(&device->stripe_ignored));
++			 (u64)atomic64_read(&device->stripe_ignored),
++			 health_avg);
+ }
+ BTRFS_ATTR(devid, read_stats, btrfs_devinfo_read_stats_show);
+ #endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index 33bedd5549159..984200f974f2c 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -34,9 +34,12 @@
+ #include "super.h"
+ #include "raid-stripe-tree.h"
+ 
+-#ifdef CONFIG_BTRFS_READ_POLICIES
++#if defined(CONFIG_BTRFS_READ_POLICIES) || defined(CONFIG_BTRFS_PER_DEVICE_IO_STATS)
+ #include <linux/part_stat.h>
+-#endif /* CONFIG_BTRFS_READ_POLICIES */
++#endif /* CONFIG_BTRFS_READ_POLICIES || CONFIG_BTRFS_PER_DEVICE_IO_STATS */
++#ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
++#include <linux/jiffies.h>
++#endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
+ 
+ #define BTRFS_BLOCK_GROUP_STRIPE_MASK	(BTRFS_BLOCK_GROUP_RAID0 | \
+ 					 BTRFS_BLOCK_GROUP_RAID10 | \
+@@ -6119,6 +6122,77 @@ static int btrfs_read_earliest(struct btrfs_fs_info *fs_info,
+ 	return best_stripe;
+ }
+ 
++#endif /* CONFIG_BTRFS_READ_POLICIES */
++
++#ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
++#define BTRFS_READ_HEALTH_RECHECK_INTERVAL	HZ
++#define BTRFS_READ_HEALTH_MIN_SAMPLE_IOS	256ULL
++
++/*
++ * Refresh the cached windowed avg read latency for the current candidates.
++ * The avg is a delta against the previous checkpoint, not a lifetime average,
++ * so unrelated bulk reads can only skew the current window.
++ */
++static void btrfs_update_read_health(struct btrfs_chunk_map *map, int first,
++				     int num_stripes)
++{
++	for (int index = first; index < first + num_stripes; index++) {
++		struct btrfs_device *device = map->stripes[index].dev;
++		unsigned long checked_jiffies = READ_ONCE(device->health_check_jiffies);
++		u64 read_ios, read_ios_before, read_wait, checked_ios, checked_wait;
++		u64 delta_ios, delta_wait;
++
++		/*
++		 * A missing mirror has no bdev; part_stat_read() would
++		 * dereference it. Leave it unclassified (health_avg_ns stays
++		 * 0, "no data") - find_live_mirror()'s own tolerance loop
++		 * already avoids selecting it regardless of read policy.
++		 */
++		if (!device->bdev)
++			continue;
++
++		if (!time_after(jiffies, checked_jiffies + BTRFS_READ_HEALTH_RECHECK_INTERVAL))
++			continue;
++
++		/* Only one reader may advance a device's checkpoint each interval. */
++		if (cmpxchg(&device->health_check_jiffies, checked_jiffies, jiffies) !=
++		    checked_jiffies)
++			continue;
++
++		/*
++		 * ios is updated before nsecs. Bracket the wait read to reject a
++		 * completion that could pair newer wait time with an older io count.
++		 */
++		read_ios_before = part_stat_read(device->bdev, ios[READ]);
++		read_wait = part_stat_read(device->bdev, nsecs[READ]);
++		read_ios = part_stat_read(device->bdev, ios[READ]);
++		if (read_ios_before != read_ios)
++			continue;
++
++		checked_ios = atomic64_read(&device->health_check_ios);
++		checked_wait = atomic64_read(&device->health_check_wait);
++
++		if (checked_ios == 0 && checked_wait == 0 && read_ios != 0) {
++			atomic64_set(&device->health_check_ios, read_ios);
++			atomic64_set(&device->health_check_wait, read_wait);
++			continue;
++		}
++
++		delta_ios = read_ios >= checked_ios ? read_ios - checked_ios : read_ios;
++		delta_wait = read_wait >= checked_wait ? read_wait - checked_wait : read_wait;
++
++		if (delta_ios < BTRFS_READ_HEALTH_MIN_SAMPLE_IOS)
++			continue;
++
++		atomic64_set(&device->health_avg_ns, div64_u64(delta_wait, delta_ios));
++		atomic64_set(&device->health_check_ios, read_ios);
++		atomic64_set(&device->health_check_wait, read_wait);
++	}
++}
++#endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
++
++#ifdef CONFIG_BTRFS_READ_POLICIES
++
+ static int btrfs_read_preferred(struct btrfs_chunk_map *map, int first, int num_stripes)
+ {
+ 	for (int index = first; index < first + num_stripes; index++) {
+@@ -6219,6 +6293,10 @@ static int find_live_mirror(struct btrfs_fs_info *fs_info,
+ 	}
+ #endif /* CONFIG_BTRFS_READ_POLICIES || CONFIG_BTRFS_PER_DEVICE_IO_STATS */
+ 
++#ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
++	btrfs_update_read_health(map, first, num_stripes);
++#endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
++
+ 	switch (policy) {
+ 	default:
+ 		/* Shouldn't happen, just warn and use pid instead of failing */
+diff --git a/fs/btrfs/volumes.h b/fs/btrfs/volumes.h
+index 766af038dc547..cbe6d16072166 100644
+--- a/fs/btrfs/volumes.h
++++ b/fs/btrfs/volumes.h
+@@ -208,6 +208,21 @@ struct btrfs_device {
+ #ifdef CONFIG_BTRFS_PER_DEVICE_IO_STATS
+ 	/* store how often a stripe has been ignored as a read candidate */
+ 	atomic64_t stripe_ignored;
++
++	/*
++	 * Cached windowed avg read latency (nsec/io), refreshed from a delta
++	 * against health_check_ios/health_check_wait, not from the lifetime
++	 * total. 0 means "not yet classified this window." atomic64_t so
++	 * readers on 32-bit architectures cannot observe a torn 64-bit value.
++	 */
++	atomic64_t health_avg_ns;
++
++	/* ios[READ]/nsecs[READ] checkpoint at the last health refresh. */
++	atomic64_t health_check_ios;
++	atomic64_t health_check_wait;
++
++	/* jiffies at the last health refresh attempt. */
++	unsigned long health_check_jiffies;
+ #endif /* CONFIG_BTRFS_PER_DEVICE_IO_STATS */
+ };
+ 

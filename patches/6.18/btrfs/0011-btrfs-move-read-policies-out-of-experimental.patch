@@ -1,0 +1,295 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Sat, 13 Dec 2025 18:34:36 +0100
+Subject: [PATCH] btrfs: move read policies out of experimental
+
+Read policies seem safe and stable enough to move it out of the
+experimental feature set. This allows us to add more policies without
+forcing users to enable the full experimental feature set.
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/Kconfig   | 15 +++++++++++++++
+ fs/btrfs/super.c   |  8 ++++----
+ fs/btrfs/sysfs.c   | 24 ++++++++++++------------
+ fs/btrfs/sysfs.h   |  4 ++--
+ fs/btrfs/volumes.c | 12 ++++++------
+ fs/btrfs/volumes.h | 10 ++++++----
+ 6 files changed, 45 insertions(+), 28 deletions(-)
+
+diff --git a/fs/btrfs/Kconfig b/fs/btrfs/Kconfig
+index 9185a821f5c84..cff9ede4b5ffa 100644
+--- a/fs/btrfs/Kconfig
++++ b/fs/btrfs/Kconfig
+@@ -150,6 +150,21 @@ config BTRFS_PER_DEVICE_IO_STATS
+ 
+ 	  If unsure, say N.
+ 
++config BTRFS_READ_POLICIES
++	bool "Btrfs read policies"
++	depends on BTRFS_FS
++	default n
++	help
++	  This enables btrfs read policies to control how btrfs selects stripes
++	  from a mirror during read operations. This was originally part of
++	  the experimental feature set but it is safe to use and can provide
++	  huge performance benefits in certain scenarios without causing any
++	  performance regressions.
++
++	  This adds a new file /sys/fs/btrfs/BTRFS-UUID/read_policy.
++
++	  If unsure, say N.
++
+ config BTRFS_EXPERIMENTAL
+ 	bool "Btrfs experimental features"
+ 	depends on BTRFS_FS
+diff --git a/fs/btrfs/super.c b/fs/btrfs/super.c
+index 430e7419349c9..8d05a3a975abc 100644
+--- a/fs/btrfs/super.c
++++ b/fs/btrfs/super.c
+@@ -2498,7 +2498,7 @@ static int __init btrfs_print_mod_info(void)
+ #endif
+ 			;
+ 
+-#ifdef CONFIG_BTRFS_EXPERIMENTAL
++#ifdef CONFIG_BTRFS_READ_POLICIES
+ 	if (btrfs_get_mod_read_policy() == NULL)
+ 		pr_info("Btrfs loaded%s\n", options);
+ 	else
+@@ -2506,7 +2506,7 @@ static int __init btrfs_print_mod_info(void)
+ 			 options, btrfs_get_mod_read_policy());
+ #else
+ 	pr_info("Btrfs loaded%s\n", options);
+-#endif
++#endif /* CONFIG_BTRFS_READ_POLICIES */
+ 
+ 	return 0;
+ }
+@@ -2565,11 +2565,11 @@ static const struct init_sequence mod_init_seq[] = {
+ 	}, {
+ 		.init_func = btrfs_extent_map_init,
+ 		.exit_func = btrfs_extent_map_exit,
+-#ifdef CONFIG_BTRFS_EXPERIMENTAL
++#ifdef CONFIG_BTRFS_READ_POLICIES
+ 	}, {
+ 		.init_func = btrfs_read_policy_init,
+ 		.exit_func = NULL,
+-#endif
++#endif /* CONFIG_BTRFS_READ_POLICIES */
+ 	}, {
+ 		.init_func = ordered_data_init,
+ 		.exit_func = ordered_data_exit,
+diff --git a/fs/btrfs/sysfs.c b/fs/btrfs/sysfs.c
+index dd5e3db07e5db..2a44a66ecc3f6 100644
+--- a/fs/btrfs/sysfs.c
++++ b/fs/btrfs/sysfs.c
+@@ -1323,13 +1323,13 @@ BTRFS_ATTR(, temp_fsid, btrfs_temp_fsid_show);
+ 
+ static const char *btrfs_read_policy_name[] = {
+ 	"pid",
+-#ifdef CONFIG_BTRFS_EXPERIMENTAL
++#ifdef CONFIG_BTRFS_READ_POLICIES
+ 	"round-robin",
+ 	"devid",
+-#endif
++#endif /* CONFIG_BTRFS_READ_POLICIES */
+ };
+ 
+-#ifdef CONFIG_BTRFS_EXPERIMENTAL
++#ifdef CONFIG_BTRFS_READ_POLICIES
+ 
+ /* Global module configuration parameters. */
+ static char *read_policy;
+@@ -1342,7 +1342,7 @@ char *btrfs_get_mod_read_policy(void)
+ module_param(read_policy, charp, 0);
+ MODULE_PARM_DESC(read_policy,
+ "Global read policy: pid (default), round-robin[:<min_contig_read>], devid[:<devid>]");
+-#endif
++#endif /* CONFIG_BTRFS_READ_POLICIES */
+ 
+ int btrfs_read_policy_to_enum(const char *str, s64 *value_ret)
+ {
+@@ -1354,7 +1354,7 @@ int btrfs_read_policy_to_enum(const char *str, s64 *value_ret)
+ 
+ 	strscpy(param, str);
+ 
+-#ifdef CONFIG_BTRFS_EXPERIMENTAL
++#ifdef CONFIG_BTRFS_READ_POLICIES
+ 	/* Separate value from input in policy:value format. */
+ 	value_str = strchr(param, ':');
+ 	if (value_str) {
+@@ -1371,12 +1371,12 @@ int btrfs_read_policy_to_enum(const char *str, s64 *value_ret)
+ 		if (*retptr != 0 || *value_ret <= 0)
+ 			return -EINVAL;
+ 	}
+-#endif
++#endif /* CONFIG_BTRFS_READ_POLICIES */
+ 
+ 	return sysfs_match_string(btrfs_read_policy_name, param);
+ }
+ 
+-#ifdef CONFIG_BTRFS_EXPERIMENTAL
++#ifdef CONFIG_BTRFS_READ_POLICIES
+ int __init btrfs_read_policy_init(void)
+ {
+ 	s64 value;
+@@ -1388,7 +1388,7 @@ int __init btrfs_read_policy_init(void)
+ 
+ 	return 0;
+ }
+-#endif
++#endif /* CONFIG_BTRFS_READ_POLICIES */
+ 
+ static ssize_t btrfs_read_policy_show(struct kobject *kobj,
+ 				      struct kobj_attribute *a, char *buf)
+@@ -1407,7 +1407,7 @@ static ssize_t btrfs_read_policy_show(struct kobject *kobj,
+ 
+ 		ret += sysfs_emit_at(buf, ret, "%s", btrfs_read_policy_name[i]);
+ 
+-#ifdef CONFIG_BTRFS_EXPERIMENTAL
++#ifdef CONFIG_BTRFS_READ_POLICIES
+ 		if (i == BTRFS_READ_POLICY_RR)
+ 			ret += sysfs_emit_at(buf, ret, ":%u",
+ 					     READ_ONCE(fs_devices->rr_min_contig_read));
+@@ -1415,7 +1415,7 @@ static ssize_t btrfs_read_policy_show(struct kobject *kobj,
+ 		if (i == BTRFS_READ_POLICY_DEVID)
+ 			ret += sysfs_emit_at(buf, ret, ":%llu",
+ 					     READ_ONCE(fs_devices->read_devid));
+-#endif
++#endif /* CONFIG_BTRFS_READ_POLICIES */
+ 		if (i == policy)
+ 			ret += sysfs_emit_at(buf, ret, "]");
+ 	}
+@@ -1437,7 +1437,7 @@ static ssize_t btrfs_read_policy_store(struct kobject *kobj,
+ 	if (index < 0)
+ 		return -EINVAL;
+ 
+-#ifdef CONFIG_BTRFS_EXPERIMENTAL
++#ifdef CONFIG_BTRFS_READ_POLICIES
+ 	/* If moving from RR then disable collecting fs stats. */
+ 	if (fs_devices->read_policy == BTRFS_READ_POLICY_RR && index != BTRFS_READ_POLICY_RR)
+ 		fs_devices->collect_fs_stats = false;
+@@ -1496,7 +1496,7 @@ static ssize_t btrfs_read_policy_store(struct kobject *kobj,
+ 
+ 		return len;
+ 	}
+-#endif
++#endif /* CONFIG_BTRFS_READ_POLICIES */
+ 	if (index != READ_ONCE(fs_devices->read_policy)) {
+ 		WRITE_ONCE(fs_devices->read_policy, index);
+ 		btrfs_info(fs_devices->fs_info, "read policy set to '%s'",
+diff --git a/fs/btrfs/sysfs.h b/fs/btrfs/sysfs.h
+index 0f94ae9232101..957688f746fb2 100644
+--- a/fs/btrfs/sysfs.h
++++ b/fs/btrfs/sysfs.h
+@@ -50,9 +50,9 @@ void btrfs_sysfs_del_one_qgroup(struct btrfs_fs_info *fs_info,
+ 				struct btrfs_qgroup *qgroup);
+ int btrfs_read_policy_to_enum(const char *str, s64 *value);
+ 
+-#ifdef CONFIG_BTRFS_EXPERIMENTAL
++#ifdef CONFIG_BTRFS_READ_POLICIES
+ int __init btrfs_read_policy_init(void);
+ char *btrfs_get_mod_read_policy(void);
+-#endif
++#endif /* CONFIG_BTRFS_READ_POLICIES */
+ 
+ #endif
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index 85b48decc9c16..c9da8d2661108 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -1282,7 +1282,7 @@ static int open_fs_devices(struct btrfs_fs_devices *fs_devices,
+ 	fs_devices->latest_dev = latest_dev;
+ 	fs_devices->total_rw_bytes = 0;
+ 	fs_devices->chunk_alloc_policy = BTRFS_CHUNK_ALLOC_REGULAR;
+-#ifdef CONFIG_BTRFS_EXPERIMENTAL
++#ifdef CONFIG_BTRFS_READ_POLICIES
+ 	fs_devices->rr_min_contig_read = BTRFS_DEFAULT_RR_MIN_CONTIG_READ;
+ 	fs_devices->read_devid = latest_dev->devid;
+ 	fs_devices->read_policy = btrfs_read_policy_to_enum(btrfs_get_mod_read_policy(),
+@@ -1298,7 +1298,7 @@ static int open_fs_devices(struct btrfs_fs_devices *fs_devices,
+ 	}
+ #else
+ 	fs_devices->read_policy = BTRFS_READ_POLICY_PID;
+-#endif
++#endif /* CONFIG_BTRFS_READ_POLICIES */
+ 
+ 	return 0;
+ }
+@@ -6050,7 +6050,7 @@ unsigned long btrfs_full_stripe_len(struct btrfs_fs_info *fs_info,
+ 	return len;
+ }
+ 
+-#ifdef CONFIG_BTRFS_EXPERIMENTAL
++#ifdef CONFIG_BTRFS_READ_POLICIES
+ static int btrfs_read_preferred(struct btrfs_chunk_map *map, int first, int num_stripes)
+ {
+ 	for (int index = first; index < first + num_stripes; index++) {
+@@ -6118,7 +6118,7 @@ static int btrfs_read_rr(const struct btrfs_chunk_map *map, int first, int num_s
+ 	read_cycle = total_reads / min_reads_per_dev;
+ 	return stripes[read_cycle % num_stripes].num;
+ }
+-#endif
++#endif /* CONFIG_BTRFS_READ_POLICIES */
+ 
+ static int find_live_mirror(struct btrfs_fs_info *fs_info,
+ 			    struct btrfs_chunk_map *map, int first,
+@@ -6158,14 +6158,14 @@ static int find_live_mirror(struct btrfs_fs_info *fs_info,
+ 	case BTRFS_READ_POLICY_PID:
+ 		preferred_mirror = first + (current->pid % num_stripes);
+ 		break;
+-#ifdef CONFIG_BTRFS_EXPERIMENTAL
++#ifdef CONFIG_BTRFS_READ_POLICIES
+ 	case BTRFS_READ_POLICY_RR:
+ 		preferred_mirror = btrfs_read_rr(map, first, num_stripes);
+ 		break;
+ 	case BTRFS_READ_POLICY_DEVID:
+ 		preferred_mirror = btrfs_read_preferred(map, first, num_stripes);
+ 		break;
+-#endif
++#endif /* CONFIG_BTRFS_READ_POLICIES */
+ 	}
+ 
+ 	if (dev_replace_is_ongoing &&
+diff --git a/fs/btrfs/volumes.h b/fs/btrfs/volumes.h
+index 21d5af56a407d..5d7bc046635b9 100644
+--- a/fs/btrfs/volumes.h
++++ b/fs/btrfs/volumes.h
+@@ -318,12 +318,12 @@ enum btrfs_chunk_allocation_policy {
+ enum btrfs_read_policy {
+ 	/* Use process PID to choose the stripe */
+ 	BTRFS_READ_POLICY_PID,
+-#ifdef CONFIG_BTRFS_EXPERIMENTAL
++#ifdef CONFIG_BTRFS_READ_POLICIES
+ 	/* Balancing RAID1 reads across all striped devices (round-robin). */
+ 	BTRFS_READ_POLICY_RR,
+ 	/* Read from a specific device. */
+ 	BTRFS_READ_POLICY_DEVID,
+-#endif
++#endif /* CONFIG_BTRFS_READ_POLICIES */
+ 	BTRFS_NR_READ_POLICY,
+ };
+ 
+@@ -463,7 +463,7 @@ struct btrfs_fs_devices {
+ 	/* Policy used to read the mirrored stripes. */
+ 	enum btrfs_read_policy read_policy;
+ 
+-#ifdef CONFIG_BTRFS_EXPERIMENTAL
++#ifdef CONFIG_BTRFS_READ_POLICIES
+ 	/*
+ 	 * Minimum contiguous reads before switching to next device, the unit
+ 	 * is one block/sectorsize.
+@@ -472,10 +472,12 @@ struct btrfs_fs_devices {
+ 
+ 	/* Device to be used for reading in case of RAID1. */
+ 	u64 read_devid;
++#endif /* CONFIG_BTRFS_READ_POLICIES */
+ 
++#ifdef CONFIG_BTRFS_EXPERIMENTAL
+ 	/* Checksum mode - offload it or do it synchronously. */
+ 	enum btrfs_offload_csum_mode offload_csum_mode;
+-#endif
++#endif /* CONFIG_BTRFS_EXPERIMENTAL */
+ };
+ 
+ #define BTRFS_MAX_DEVS(info) ((BTRFS_MAX_ITEM_SIZE(info)	\
