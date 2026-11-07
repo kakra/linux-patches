@@ -114,7 +114,8 @@ run_fio_test() {
 		--exitall_on_error --refill_buffers --norandommap; then
 		log "Finished fio test: $test_name"
 	else
-		log "ERROR: fio test $test_name failed!"
+		log "ERROR: fio test $test_name failed, stopping"
+		return 1
 	fi
 }
 
@@ -174,7 +175,7 @@ for defrag_state in "${DEFRAG_STATES[@]}"; do
 			read -r rw bs qd name id <<<"$test"
 			test_id=defrag_${defrag_state}_policy_${policy}_fio_${id}
 			get_read_stats "$RESULTS_DIR/${test_id}_readstats.txt"
-			run_fio_test "$name" "$rw" "$bs" "$qd" "$RESULTS_DIR/${test_id}_fio.txt"
+			run_fio_test "$name" "$rw" "$bs" "$qd" "$RESULTS_DIR/${test_id}_fio.txt" || exit 1
 			get_read_stats "$RESULTS_DIR/${test_id}_readstats.txt"
 		done
 
