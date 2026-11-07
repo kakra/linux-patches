@@ -1,0 +1,5 @@
+branch=rebase-5.4/bcache-updates
+base=v5.4.57
+head=0d9b0c8f7acf787e70cc7f770a0b4c2c5a690e1f
+date=2020-10-03
+pr=4

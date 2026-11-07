@@ -1,0 +1,266 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eric Wheeler <git@linux.ewheeler.net>
+Date: Tue, 11 Oct 2016 12:04:52 -0700
+Subject: [PATCH] bcache: introduce bcache sysfs entries for ioprio-based
+ bypass/writeback hints
+
+Add sysfs entries to support to hint for bypass/writeback by the ioprio
+assigned to the bio.  If the bio is unassigned, use current's io-context
+ioprio for cache writeback or bypass (configured per-process with
+`ionice`).
+
+Having idle IOs bypass the cache can increase performance elsewhere
+since you probably don't care about their performance.  In addition,
+this prevents idle IOs from promoting into (polluting) your cache and
+evicting blocks that are more important elsewhere.
+
+If you really nead the performance at the expense of SSD wearout,
+then configure ioprio_writeback and set your `ionice` appropriately.
+
+For example:
+	echo 2,7 > /sys/block/bcache0/bcache/ioprio_bypass
+	echo 2,0 > /sys/block/bcache0/bcache/ioprio_writeback
+
+See the documentation commit for details.
+
+Signed-off-by: Eric Wheeler <bcache@linux.ewheeler.net>
+Acked-by: Kent Overstreet <kent.overstreet@gmail.com>
+Tested-by: Kai Krakow <kai@kaishome.de>
+Cc: nix@esperi.org.uk
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ drivers/md/bcache/bcache.h    |  3 ++
+ drivers/md/bcache/request.c   | 24 ++++++++++++
+ drivers/md/bcache/sysfs.c     | 70 +++++++++++++++++++++++++++++++++++
+ drivers/md/bcache/writeback.c | 10 +++++
+ drivers/md/bcache/writeback.h | 24 ++++++++++++
+ 5 files changed, 131 insertions(+)
+
+diff --git a/drivers/md/bcache/bcache.h b/drivers/md/bcache/bcache.h
+index 3d2b63585da95..441dd29f9a2cf 100644
+--- a/drivers/md/bcache/bcache.h
++++ b/drivers/md/bcache/bcache.h
+@@ -392,6 +392,9 @@ struct cached_dev {
+ 	unsigned int		error_limit;
+ 	unsigned int		offline_seconds;
+ 
++	unsigned short		ioprio_writeback;
++	unsigned short		ioprio_bypass;
++
+ 	char			backing_dev_name[BDEVNAME_SIZE];
+ };
+ 
+diff --git a/drivers/md/bcache/request.c b/drivers/md/bcache/request.c
+index 4045ae748f17e..ff8b9a1d750bb 100644
+--- a/drivers/md/bcache/request.c
++++ b/drivers/md/bcache/request.c
+@@ -379,6 +379,8 @@ static bool check_should_bypass(struct cached_dev *dc, struct bio *bio)
+ 	unsigned int sectors, congested;
+ 	struct task_struct *task = current;
+ 	struct io *i;
++	struct io_context *ioc;
++	unsigned short ioprio;
+ 
+ 	if (test_bit(BCACHE_DEV_DETACHING, &dc->disk.flags) ||
+ 	    c->gc_stats.in_use > CUTOFF_CACHE_ADD ||
+@@ -406,6 +408,28 @@ static bool check_should_bypass(struct cached_dev *dc, struct bio *bio)
+ 			goto skip;
+ 	}
+ 
++	/* If the ioprio already exists on the bio, use that.  We assume that
++	 * the upper layer properly assigned the calling process's ioprio to
++	 * the bio being passed to bcache. Otherwise, use current's ioc. */
++	ioprio = bio_prio(bio);
++	if (!ioprio_valid(ioprio)) {
++		ioc = get_task_io_context(current, GFP_NOIO, NUMA_NO_NODE);
++		if (ioc) {
++			if (ioprio_valid(ioc->ioprio))
++				ioprio = ioc->ioprio;
++			put_io_context(ioc);
++			ioc = NULL;
++		}
++	}
++
++	/* If process ioprio is lower-or-equal to dc->ioprio_bypass, then
++	 * hint for bypass. Note that a lower-priority IO class+value
++	 * has a greater numeric value. */
++	if (ioprio_valid(ioprio) && ioprio_valid(dc->ioprio_writeback)
++		&& ioprio >= dc->ioprio_bypass) {
++		goto skip;
++	}
++
+ 	if (bio->bi_iter.bi_sector & (c->sb.block_size - 1) ||
+ 	    bio_sectors(bio) & (c->sb.block_size - 1)) {
+ 		pr_debug("skipping unaligned io");
+diff --git a/drivers/md/bcache/sysfs.c b/drivers/md/bcache/sysfs.c
+index 7f0fb4b5755a8..837421e9677bb 100644
+--- a/drivers/md/bcache/sysfs.c
++++ b/drivers/md/bcache/sysfs.c
+@@ -144,6 +144,9 @@ rw_attribute(copy_gc_enabled);
+ rw_attribute(gc_after_writeback);
+ rw_attribute(size);
+ 
++rw_attribute(ioprio_writeback);
++rw_attribute(ioprio_bypass);
++
+ static ssize_t bch_snprint_string_list(char *buf,
+ 				       size_t size,
+ 				       const char * const list[],
+@@ -272,6 +275,16 @@ SHOW(__bch_cached_dev)
+ 		return strlen(buf);
+ 	}
+ 
++	if (attr == &sysfs_ioprio_bypass)
++		return snprintf(buf, PAGE_SIZE-1, "%d,%ld\n",
++			IOPRIO_PRIO_CLASS(dc->ioprio_bypass),
++			IOPRIO_PRIO_DATA(dc->ioprio_bypass));
++
++	if (attr == &sysfs_ioprio_writeback)
++		return snprintf(buf, PAGE_SIZE-1, "%d,%ld\n",
++			IOPRIO_PRIO_CLASS(dc->ioprio_writeback),
++			IOPRIO_PRIO_DATA(dc->ioprio_writeback));
++
+ #undef var
+ 	return 0;
+ }
+@@ -284,6 +297,10 @@ STORE(__cached_dev)
+ 	ssize_t v;
+ 	struct cache_set *c;
+ 	struct kobj_uevent_env *env;
++	unsigned ioprio_class = 0; /* invalid initial ioprio values */
++	unsigned ioprio_level = IOPRIO_BE_NR;
++	unsigned short *ioprio_hint = NULL;
++	char *ioprio_type = NULL;
+ 
+ 	/* no user space access if system is rebooting */
+ 	if (bcache_is_reboot)
+@@ -430,6 +447,57 @@ STORE(__cached_dev)
+ 	if (attr == &sysfs_stop)
+ 		bcache_device_stop(&dc->disk);
+ 
++	/* ioprio hinting: we use ioprio_hint to reduce duplicate printk verbiage */
++	if (attr == &sysfs_ioprio_writeback) {
++		ioprio_hint = &dc->ioprio_writeback;
++		ioprio_type = "writeback";
++	}
++
++	if (attr == &sysfs_ioprio_bypass) {
++		ioprio_hint = &dc->ioprio_bypass;
++		ioprio_type = "bypass";
++	}
++
++	if (ioprio_hint != NULL)
++	{
++		if (sscanf(buf, "%u,%u", &ioprio_class, &ioprio_level) != 2
++			|| ioprio_class > IOPRIO_CLASS_IDLE
++			|| ioprio_level >= IOPRIO_BE_NR) {
++			pr_err("ioprio_%s invalid, expecting: (class,level) but parsed (%u,%u); ignored.",
++				ioprio_type,
++				ioprio_class, ioprio_level);
++			return size;
++		}
++
++		/* Use the maximum(/minimum) value in the class shift space to make integer
++		  comparison correct for ioprio_writeback(/ioprio_bypass) for IOPRIO_CLASS_IDLE.
++		  This is necessary because there are no ioprio levels for the idle class. */
++		if (ioprio_class == IOPRIO_CLASS_IDLE) {
++			if (ioprio_hint == &dc->ioprio_writeback)
++				ioprio_level = IOPRIO_PRIO_MASK;
++			else
++				/* Same, but 0 for bypass (inverted vs. writeback) */
++				ioprio_level = 0;
++		}
++
++		*ioprio_hint = IOPRIO_PRIO_VALUE(ioprio_class, ioprio_level);
++
++		if (!ioprio_valid(*ioprio_hint))
++			pr_info("disabled ioprio_%s hints.", ioprio_type);
++		else
++			pr_info("set hint for cache %s with priority %s: (class,level) = (%u,%u)",
++				ioprio_type,
++				( ioprio_hint == &dc->ioprio_writeback ? "at-or-above" : "at-or-below" ),
++				ioprio_class, ioprio_level);
++
++		if (ioprio_valid(dc->ioprio_writeback)
++			&& ioprio_valid(dc->ioprio_bypass)
++			&& dc->ioprio_writeback >= dc->ioprio_bypass)
++			pr_warning(
++				"warning: ioprio_writeback hint is neither disabled nor higher priority than the bypass hint; "
++				"will always writeback!");
++	}
++
+ 	return size;
+ }
+ 
+@@ -517,6 +585,8 @@ static struct attribute *bch_cached_dev_files[] = {
+ #endif
+ 	&sysfs_backing_dev_name,
+ 	&sysfs_backing_dev_uuid,
++	&sysfs_ioprio_bypass,
++	&sysfs_ioprio_writeback,
+ 	NULL
+ };
+ KTYPE(bch_cached_dev);
+diff --git a/drivers/md/bcache/writeback.c b/drivers/md/bcache/writeback.c
+index d60268fe49e10..fcb9cf7b55f95 100644
+--- a/drivers/md/bcache/writeback.c
++++ b/drivers/md/bcache/writeback.c
+@@ -821,6 +821,16 @@ void bch_cached_dev_writeback_init(struct cached_dev *dc)
+ 	dc->writeback_rate_p_term_inverse = 40;
+ 	dc->writeback_rate_i_term_inverse = 10000;
+ 
++	/*
++	 * These defaults provide the best SSD life by enabling bypass
++	 * for priorities at-or-below BE-7. This also provides better
++	 * performance (cache hits) by preventing (near-)idle processes from
++	 * polluting the cache working set.  Only set ioprio_writeback if
++	 * you really need it: it will wear out your SSD sooner.
++	 */
++	dc->ioprio_writeback = IOPRIO_PRIO_VALUE(0, 0);
++	dc->ioprio_bypass    = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, (IOPRIO_BE_NR-1));
++
+ 	WARN_ON(test_and_clear_bit(BCACHE_DEV_WB_RUNNING, &dc->disk.flags));
+ 	INIT_DELAYED_WORK(&dc->writeback_rate_update, update_writeback_rate);
+ }
+diff --git a/drivers/md/bcache/writeback.h b/drivers/md/bcache/writeback.h
+index 4e4c6810dc3c7..8dcafe3bbebc0 100644
+--- a/drivers/md/bcache/writeback.h
++++ b/drivers/md/bcache/writeback.h
+@@ -65,6 +65,8 @@ static inline bool should_writeback(struct cached_dev *dc, struct bio *bio,
+ 				    unsigned int cache_mode, bool would_skip)
+ {
+ 	unsigned int in_use = dc->disk.c->gc_stats.in_use;
++	struct io_context *ioc;
++	unsigned short ioprio;
+ 
+ 	if (cache_mode != CACHE_MODE_WRITEBACK ||
+ 	    test_bit(BCACHE_DEV_DETACHING, &dc->disk.flags) ||
+@@ -82,6 +84,28 @@ static inline bool should_writeback(struct cached_dev *dc, struct bio *bio,
+ 	if (would_skip)
+ 		return false;
+ 
++	/* If the ioprio already exists on the bio, use that.  We assume that
++	 * the upper layer properly assigned the calling process's ioprio to
++	 * the bio being passed to bcache. Otherwise, use current's ioc. */
++	ioprio = bio_prio(bio);
++	if (!ioprio_valid(ioprio)) {
++		ioc = get_task_io_context(current, GFP_NOIO, NUMA_NO_NODE);
++		if (ioc) {
++			if (ioprio_valid(ioc->ioprio))
++				ioprio = ioc->ioprio;
++			put_io_context(ioc);
++			ioc = NULL;
++		}
++	}
++
++	/* If process ioprio is higher-or-equal to dc->ioprio_writeback, then
++	 * hint for writeback. Note that a higher-priority IO class+value
++	 * has a lesser numeric value. */
++	if (ioprio_valid(ioprio) && ioprio_valid(dc->ioprio_writeback)
++		&& ioprio <= dc->ioprio_writeback) {
++		return true;
++	}
++
+ 	return (op_is_sync(bio->bi_opf) ||
+ 		bio->bi_opf & (REQ_META|REQ_PRIO) ||
+ 		in_use <= bch_cutoff_writeback);
