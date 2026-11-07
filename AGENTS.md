@@ -22,6 +22,14 @@ rules.
   pull request. Experiments and local variants stay out.
 - Authorship: a series keeps the original authors of its commits. Do not
   mix authorship within a commit.
+- Commits on the kernel branches follow
+  `Documentation/process/coding-assistants.rst`: an assistant adds an
+  `Assisted-by: Claude` trailer to commits it wrote or changed (a new
+  commit, a conflict resolution with a `[Rebased onto ...]` note) and never
+  a `Signed-off-by`, no `Co-Authored-By` either. The maintainer adds his
+  own `Signed-off-by` after review. The kernel clone has a
+  `prepare-commit-msg` hook that adds it automatically, so commit there
+  with `git -c core.hooksPath=/dev/null` as an assistant.
 - Pull requests and issues: in Markdown files, link them with
   reference-style links (`PR [#40][pr-40]`, the URL at the end of the
   file). In commit messages, write them as plain text without URL or `#`,
