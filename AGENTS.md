@@ -48,7 +48,7 @@ Co-Authored-By: ...
 - `<area>` is one of `repo` (top-level files such as README, LICENSE,
   HISTORY.md, AGENTS.md), `series` (submodule entries without an export,
   e.g. dropping a series), `patches` (an export together with its pin),
-  `tools`, `docs`.
+  `base` (the pin of the `base/` submodule), `tools`, `docs`.
 - The summary is imperative and lower case, without a final period, and the
   whole subject line has at most 72 characters.
 - The `References:` list is optional and plain text (see the rule above).

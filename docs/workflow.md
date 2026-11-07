@@ -34,6 +34,26 @@ every two months was too much work.
 - A series that is not rebased for a new kernel series keeps its pin as long
   as it applies (check with `tools/check-series.sh --on v<new>`).
 
+## The base submodule
+
+`base/` is a submodule pinned to `base-<version>` of the fork, the base
+branch the series of the current kernel series are tracked against. It
+carries no patches: it is the `.0` release or the stable release it was
+last moved to because of conflicts. Together with the series pins it
+names everything needed to rebuild a complete patch set: the stable
+release, and the series on top. Each kernel series pins its base in the
+same commit range as its exports; 5.4 and 5.10 have no base pin.
+
+The checkout of `base/` is a worktree of the kernel clone like the series
+checkouts. Pin a new base with:
+
+```sh
+git config -f .gitmodules submodule.base.branch base-<version>
+git -C base checkout base-<version>
+git add .gitmodules base
+git commit -m "base: pin base-<version>"
+```
+
 ## Submodule checkouts
 
 All series are branches of one large kernel clone. A plain
