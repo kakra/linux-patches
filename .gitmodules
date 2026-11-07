@@ -4,12 +4,6 @@
 	branch = rebase-6.18/gaming-patches
 	shallow = true
 	pr = 44
-[submodule "cltweaks"]
-	path = series/cltweaks
-	url = https://github.com/kakra/linux.git
-	branch = rebase-6.18/cltweaks
-	shallow = true
-	pr = 43
 [submodule "pf-ksm"]
 	path = series/pf-ksm
 	url = https://github.com/kakra/linux.git
