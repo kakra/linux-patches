@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kk@netactive.de>
+Date: Thu, 27 Jun 2024 20:05:58 +0200
+Subject: [PATCH] btrfs: add allocator_hint for no allocation preferred
+
+This is useful where you want to prevent new allocations of chunks on a
+disk which is going to removed from the pool anyways, e.g. due to bad
+blocks or because it's slow.
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/volumes.c              | 6 +++++-
+ include/uapi/linux/btrfs_tree.h | 2 ++
+ 2 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index e66700fc8dcd4..c6aa93fae9aa6 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -194,6 +194,7 @@ static const char alloc_hint_map[BTRFS_DEV_ALLOCATION_MASK_COUNT] = {
+ 	[BTRFS_DEV_ALLOCATION_PREFERRED_DATA] = 0,
+ 	[BTRFS_DEV_ALLOCATION_PREFERRED_METADATA] = 1,
+ 	[BTRFS_DEV_ALLOCATION_METADATA_ONLY] = 2,
++	[BTRFS_DEV_ALLOCATION_PREFERRED_NONE] = 99,
+ 	/* the other values are set to 0 */
+ };
+ 
+@@ -5289,7 +5290,10 @@ static int gather_device_info(struct btrfs_fs_devices *fs_devices,
+ 			 * sort also by hint (metadata hint
+ 			 * higher priority)
+ 			 */
+-			devices_info[ndevs].alloc_hint = alloc_hint_map[hint];
++			if (hint == BTRFS_DEV_ALLOCATION_PREFERRED_NONE)
++				devices_info[ndevs].alloc_hint = -alloc_hint_map[hint];
++			else
++				devices_info[ndevs].alloc_hint = alloc_hint_map[hint];
+ 		}
+ 
+ 		++ndevs;
+diff --git a/include/uapi/linux/btrfs_tree.h b/include/uapi/linux/btrfs_tree.h
+index 71c6135dc7cfb..92bcc59b129a9 100644
+--- a/include/uapi/linux/btrfs_tree.h
++++ b/include/uapi/linux/btrfs_tree.h
+@@ -590,6 +590,8 @@ struct btrfs_node {
+ #define BTRFS_DEV_ALLOCATION_METADATA_ONLY	(2ULL)
+ /* only data chunk allowed */
+ #define BTRFS_DEV_ALLOCATION_DATA_ONLY		(3ULL)
++/* preferred no chunk, but chunks allowed */
++#define BTRFS_DEV_ALLOCATION_PREFERRED_NONE	(4ULL)
+ /* 5..7 are unused values */
+ 
+ struct btrfs_dev_item {

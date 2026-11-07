@@ -1,0 +1,146 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Anand Jain <anand.jain@oracle.com>
+Date: Thu, 2 Jan 2025 02:06:36 +0800
+Subject: [PATCH] btrfs: add RAID1 preferred read device
+
+When there's stale data on a mirrored device, this feature lets you choose
+which device to read from. Mainly used for testing.
+
+echo "devid:<devid-value>" > /sys/fs/btrfs/<UUID>/read_policy
+
+Signed-off-by: Anand Jain <anand.jain@oracle.com>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/sysfs.c   | 33 ++++++++++++++++++++++++++++++++-
+ fs/btrfs/volumes.c | 21 +++++++++++++++++++++
+ fs/btrfs/volumes.h |  5 +++++
+ 3 files changed, 58 insertions(+), 1 deletion(-)
+
+diff --git a/fs/btrfs/sysfs.c b/fs/btrfs/sysfs.c
+index 926454ee992a9..5ca17956202eb 100644
+--- a/fs/btrfs/sysfs.c
++++ b/fs/btrfs/sysfs.c
+@@ -1309,6 +1309,7 @@ static const char * const btrfs_read_policy_name[] = {
+ 	"pid",
+ #ifdef CONFIG_BTRFS_EXPERIMENTAL
+ 	"round-robin",
++	"devid",
+ #endif
+ };
+ 
+@@ -1356,8 +1357,11 @@ static ssize_t btrfs_read_policy_show(struct kobject *kobj,
+ 		if (i == BTRFS_READ_POLICY_RR)
+ 			ret += sysfs_emit_at(buf, ret, ":%d",
+ 				 READ_ONCE(fs_devices->rr_min_contig_read));
+-#endif
+ 
++		if (i == BTRFS_READ_POLICY_DEVID)
++			ret += sysfs_emit_at(buf, ret, ":%llu",
++					     READ_ONCE(fs_devices->read_devid));
++#endif
+ 		if (i == policy)
+ 			ret += sysfs_emit_at(buf, ret, "]");
+ 	}
+@@ -1414,6 +1418,33 @@ static ssize_t btrfs_read_policy_store(struct kobject *kobj,
+ 
+ 		return len;
+ 	}
++
++	if (index == BTRFS_READ_POLICY_DEVID) {
++
++		if (value != -1) {
++			BTRFS_DEV_LOOKUP_ARGS(args);
++
++			/* Validate input devid */
++			args.devid = value;
++			if (btrfs_find_device(fs_devices, &args) == NULL)
++				return -EINVAL;
++		} else {
++			/* Set default devid to the devid of the latest device */
++			value = fs_devices->latest_dev->devid;
++		}
++
++		if (index != READ_ONCE(fs_devices->read_policy) ||
++		    (value != READ_ONCE(fs_devices->read_devid))) {
++			WRITE_ONCE(fs_devices->read_policy, index);
++			WRITE_ONCE(fs_devices->read_devid, value);
++
++			btrfs_info(fs_devices->fs_info, "read policy set to '%s:%llu'",
++				   btrfs_read_policy_name[index], value);
++
++		}
++
++		return len;
++	}
+ #endif
+ 	if (index != READ_ONCE(fs_devices->read_policy)) {
+ 		WRITE_ONCE(fs_devices->read_policy, index);
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index 637d257bcd3d4..8320dee813907 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -1237,6 +1237,7 @@ static int open_fs_devices(struct btrfs_fs_devices *fs_devices,
+ 	fs_devices->read_policy = BTRFS_READ_POLICY_PID;
+ #ifdef CONFIG_BTRFS_EXPERIMENTAL
+ 	fs_devices->rr_min_contig_read = BTRFS_DEFAULT_RR_MIN_CONTIG_READ;
++	fs_devices->read_devid = latest_dev->devid;
+ #endif
+ 
+ 	return 0;
+@@ -5974,6 +5975,23 @@ int btrfs_is_parity_mirror(struct btrfs_fs_info *fs_info, u64 logical, u64 len)
+ }
+ 
+ #ifdef CONFIG_BTRFS_EXPERIMENTAL
++static int btrfs_read_preferred(struct btrfs_chunk_map *map, int first,
++				int num_stripe)
++{
++	int last = first + num_stripe;
++	int stripe_index;
++
++	for (stripe_index = first; stripe_index < last; stripe_index++) {
++		struct btrfs_device *device = map->stripes[stripe_index].dev;
++
++		if (device->devid == READ_ONCE(device->fs_devices->read_devid))
++			return stripe_index;
++	}
++
++	/* If no read-preferred device, use first stripe */
++	return first;
++}
++
+ struct stripe_mirror {
+ 	u64 devid;
+ 	int num;
+@@ -6065,6 +6083,9 @@ static int find_live_mirror(struct btrfs_fs_info *fs_info,
+ 	case BTRFS_READ_POLICY_RR:
+ 		preferred_mirror = btrfs_read_rr(map, first, num_stripes);
+ 		break;
++	case BTRFS_READ_POLICY_DEVID:
++		preferred_mirror = btrfs_read_preferred(map, first, num_stripes);
++		break;
+ #endif
+ 	}
+ 
+diff --git a/fs/btrfs/volumes.h b/fs/btrfs/volumes.h
+index 65d56bffc6ef8..d8075ad17a6d3 100644
+--- a/fs/btrfs/volumes.h
++++ b/fs/btrfs/volumes.h
+@@ -308,6 +308,8 @@ enum btrfs_read_policy {
+ #ifdef CONFIG_BTRFS_EXPERIMENTAL
+ 	/* Balancing raid1 reads across all striped devices (round-robin) */
+ 	BTRFS_READ_POLICY_RR,
++	/* Read from the specific device */
++	BTRFS_READ_POLICY_DEVID,
+ #endif
+ 	BTRFS_NR_READ_POLICY,
+ };
+@@ -441,6 +443,9 @@ struct btrfs_fs_devices {
+ #ifdef CONFIG_BTRFS_EXPERIMENTAL
+ 	/* Min contiguous reads before switching to next device. */
+ 	int rr_min_contig_read;
++
++	/* Device to be used for reading in case of RAID1. */
++	u64 read_devid;
+ #endif
+ 
+ #ifdef CONFIG_BTRFS_DEBUG

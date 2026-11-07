@@ -1,0 +1,5 @@
+branch=rebase-6.12/btrfs-patches
+base=v6.12
+head=abf6174381e1eabe6b5384a6eea00e11537e7031
+date=2025-06-23
+pr=36

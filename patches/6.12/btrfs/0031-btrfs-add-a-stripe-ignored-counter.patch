@@ -1,0 +1,73 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Sun, 20 Apr 2025 23:12:56 +0200
+Subject: [PATCH] btrfs: add a stripe ignored counter
+
+To get some more insights, we can count how often a stripe has been
+ignored relative to its neighbors. We simply increase the counter for
+all candidates, then decrease it after selection.
+
+This should show how evenly distributed one of the read balancing
+algorithms is.
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/sysfs.c   | 5 +++--
+ fs/btrfs/volumes.c | 4 +++-
+ fs/btrfs/volumes.h | 1 +
+ 3 files changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/fs/btrfs/sysfs.c b/fs/btrfs/sysfs.c
+index 094c9486be071..7ce9747117cd1 100644
+--- a/fs/btrfs/sysfs.c
++++ b/fs/btrfs/sysfs.c
+@@ -2202,10 +2202,11 @@ static ssize_t btrfs_devinfo_read_stats_show(struct kobject *kobj,
+ 	return scnprintf(buf, PAGE_SIZE,
+ 	                 "cumulative ios %lu wait %llu avg %llu "
+ 	                 "checkpoint ios %ld wait %lld avg %llu "
+-	                 "age %lld count %llu\n",
++	                 "age %lld count %llu ignored %lld\n",
+ 	                 read_ios, read_wait, avg_wait,
+ 	                 delta_read_ios, delta_read_wait, delta_avg_wait,
+-	                 atomic64_read(&device->last_io_age), atomic64_read(&device->checkpoints));
++	                 atomic64_read(&device->last_io_age), atomic64_read(&device->checkpoints),
++	                 atomic64_read(&device->stripe_ignored));
+ }
+ BTRFS_ATTR(devid, read_stats, btrfs_devinfo_read_stats_show);
+ #endif
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index 8fd8ea41ccf6a..191af0f0542e5 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -6202,6 +6202,7 @@ static int find_live_mirror(struct btrfs_fs_info *fs_info,
+ 	/* age each possible stripe by 1 IO */
+ 	for (int i = first; i < first + num_stripes; i++) {
+ 		atomic64_inc(&map->stripes[i].dev->last_io_age);
++		atomic64_inc(&map->stripes[i].dev->stripe_ignored);
+ 	}
+ #endif
+ 
+@@ -6273,9 +6274,10 @@ static int find_live_mirror(struct btrfs_fs_info *fs_info,
+ 			atomic64_set(&pref_dev->last_io_age, -BTRFS_DEVICE_LATENCY_CHECKPOINT_BURST_IO);
+ 			atomic64_set(&pref_dev->last_nsecs_read, part_stat_read(pref_dev->bdev, nsecs[READ]));
+ 			atomic64_set(&pref_dev->last_ios_read, part_stat_read(pref_dev->bdev, ios[READ]));
+-		} else if (current_age >= 0) {
++		} else if (current_age > 0) {
+ 			atomic64_set(&pref_dev->last_io_age, 0);
+ 		}
++		atomic64_dec(&pref_dev->stripe_ignored);
+ 
+ 		spin_unlock(&pref_dev->latency_lock);
+ 	} while (0);
+diff --git a/fs/btrfs/volumes.h b/fs/btrfs/volumes.h
+index 88aa0057b51d5..8906edbec4fd1 100644
+--- a/fs/btrfs/volumes.h
++++ b/fs/btrfs/volumes.h
+@@ -202,6 +202,7 @@ struct btrfs_device {
+ 	/* store an age of last read access */
+ 	atomic64_t last_io_age;
+ 	atomic64_t checkpoints;
++	atomic64_t stripe_ignored;
+ 
+ 	/* lock while updating values */
+ 	spinlock_t latency_lock;

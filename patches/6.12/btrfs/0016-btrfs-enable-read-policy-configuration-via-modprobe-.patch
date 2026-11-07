@@ -1,0 +1,147 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Anand Jain <anand.jain@oracle.com>
+Date: Thu, 2 Jan 2025 02:06:38 +0800
+Subject: [PATCH] btrfs: enable read policy configuration via modprobe
+ parameter
+
+This update allows configuring the `read_policy` methods using a
+modprobe parameter when experimental mode CONFIG_BTRFS_EXPERIMENTAL
+is enabled.
+
+Examples:
+
+- Set the RAID1 balancing method to round-robin with a custom
+`min_contig_read` of 4k:
+  $ modprobe btrfs read_policy=round-robin:4096
+
+- Set the round-robin balancing method with the default
+`min_contig_read`:
+  $ modprobe btrfs read_policy=round-robin
+
+- Set the `devid` balancing method, defaulting to the latest
+device:
+  $ modprobe btrfs read_policy=devid
+
+Signed-off-by: Anand Jain <anand.jain@oracle.com>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/super.c   |  5 +++++
+ fs/btrfs/sysfs.c   | 30 +++++++++++++++++++++++++++++-
+ fs/btrfs/sysfs.h   |  5 +++++
+ fs/btrfs/volumes.c | 14 +++++++++++++-
+ 4 files changed, 52 insertions(+), 2 deletions(-)
+
+diff --git a/fs/btrfs/super.c b/fs/btrfs/super.c
+index 4742bb2af601a..448db8974cda7 100644
+--- a/fs/btrfs/super.c
++++ b/fs/btrfs/super.c
+@@ -2549,6 +2549,11 @@ static const struct init_sequence mod_init_seq[] = {
+ 	}, {
+ 		.init_func = extent_map_init,
+ 		.exit_func = extent_map_exit,
++#ifdef CONFIG_BTRFS_EXPERIMENTAL
++	}, {
++		.init_func = btrfs_read_policy_init,
++		.exit_func = NULL,
++#endif
+ 	}, {
+ 		.init_func = ordered_data_init,
+ 		.exit_func = ordered_data_exit,
+diff --git a/fs/btrfs/sysfs.c b/fs/btrfs/sysfs.c
+index 5ca17956202eb..722f2b2ff0602 100644
+--- a/fs/btrfs/sysfs.c
++++ b/fs/btrfs/sysfs.c
+@@ -1313,7 +1313,21 @@ static const char * const btrfs_read_policy_name[] = {
+ #endif
+ };
+ 
+-static int btrfs_read_policy_to_enum(const char *str, s64 *value)
++#ifdef CONFIG_BTRFS_EXPERIMENTAL
++/* Global module configuration parameters */
++static char *read_policy;
++char *btrfs_get_mod_read_policy(void)
++{
++	return read_policy;
++}
++
++/* Set perm 0, disable sys/module/btrfs/parameter/read_policy interface */
++module_param(read_policy, charp, 0);
++MODULE_PARM_DESC(read_policy,
++"Global read policy; pid (default), round-robin[:min_contig_read], devid[:devid]");
++#endif
++
++int btrfs_read_policy_to_enum(const char *str, s64 *value)
+ {
+ 	char param[32] = {'\0'};
+ 	char *__maybe_unused value_str;
+@@ -1336,6 +1350,20 @@ static int btrfs_read_policy_to_enum(const char *str, s64 *value)
+ 	return sysfs_match_string(btrfs_read_policy_name, param);
+ }
+ 
++#ifdef CONFIG_BTRFS_EXPERIMENTAL
++int __init btrfs_read_policy_init(void)
++{
++	s64 value;
++
++	if (btrfs_read_policy_to_enum(read_policy, &value) == -EINVAL) {
++		btrfs_err(NULL, "invalid read policy or value %s", read_policy);
++		return -EINVAL;
++	}
++
++	return 0;
++}
++#endif
++
+ static ssize_t btrfs_read_policy_show(struct kobject *kobj,
+ 				      struct kobj_attribute *a, char *buf)
+ {
+diff --git a/fs/btrfs/sysfs.h b/fs/btrfs/sysfs.h
+index e6a284c59809c..e83efc44e3007 100644
+--- a/fs/btrfs/sysfs.h
++++ b/fs/btrfs/sysfs.h
+@@ -47,5 +47,10 @@ void btrfs_sysfs_del_qgroups(struct btrfs_fs_info *fs_info);
+ int btrfs_sysfs_add_qgroups(struct btrfs_fs_info *fs_info);
+ void btrfs_sysfs_del_one_qgroup(struct btrfs_fs_info *fs_info,
+ 				struct btrfs_qgroup *qgroup);
++int btrfs_read_policy_to_enum(const char *str, s64 *value);
++#ifdef CONFIG_BTRFS_EXPERIMENTAL
++int __init btrfs_read_policy_init(void);
++char *btrfs_get_mod_read_policy(void);
++#endif
+ 
+ #endif
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index 8320dee813907..c893ad39278ea 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -1205,6 +1205,7 @@ static int open_fs_devices(struct btrfs_fs_devices *fs_devices,
+ 	struct btrfs_device *device;
+ 	struct btrfs_device *latest_dev = NULL;
+ 	struct btrfs_device *tmp_device;
++	s64 __maybe_unused value = 0;
+ 	int ret = 0;
+ 
+ 	list_for_each_entry_safe(device, tmp_device, &fs_devices->devices,
+@@ -1234,10 +1235,21 @@ static int open_fs_devices(struct btrfs_fs_devices *fs_devices,
+ 	fs_devices->latest_dev = latest_dev;
+ 	fs_devices->total_rw_bytes = 0;
+ 	fs_devices->chunk_alloc_policy = BTRFS_CHUNK_ALLOC_REGULAR;
+-	fs_devices->read_policy = BTRFS_READ_POLICY_PID;
+ #ifdef CONFIG_BTRFS_EXPERIMENTAL
+ 	fs_devices->rr_min_contig_read = BTRFS_DEFAULT_RR_MIN_CONTIG_READ;
+ 	fs_devices->read_devid = latest_dev->devid;
++	fs_devices->read_policy =
++		btrfs_read_policy_to_enum(btrfs_get_mod_read_policy(), &value);
++	if (fs_devices->read_policy == BTRFS_READ_POLICY_RR)
++		fs_devices->fs_stats = true;
++	if (value) {
++		if (fs_devices->read_policy == BTRFS_READ_POLICY_RR)
++			fs_devices->rr_min_contig_read = value;
++		if (fs_devices->read_policy == BTRFS_READ_POLICY_DEVID)
++			fs_devices->read_devid = value;
++	}
++#else
++	fs_devices->read_policy = BTRFS_READ_POLICY_PID;
+ #endif
+ 
+ 	return 0;

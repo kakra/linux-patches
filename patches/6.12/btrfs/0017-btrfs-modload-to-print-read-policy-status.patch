@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Anand Jain <anand.jain@oracle.com>
+Date: Thu, 2 Jan 2025 02:06:39 +0800
+Subject: [PATCH] btrfs: modload to print read policy status
+
+Modified the Btrfs loading message to include the read policy status
+if the experimental feature is enabled.
+
+Signed-off-by: Anand Jain <anand.jain@oracle.com>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/super.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/fs/btrfs/super.c b/fs/btrfs/super.c
+index 448db8974cda7..ea5ff01881d70 100644
+--- a/fs/btrfs/super.c
++++ b/fs/btrfs/super.c
+@@ -2491,7 +2491,17 @@ static int __init btrfs_print_mod_info(void)
+ 			", fsverity=no"
+ #endif
+ 			;
++
++#ifdef CONFIG_BTRFS_EXPERIMENTAL
++	if (btrfs_get_mod_read_policy() == NULL)
++		pr_info("Btrfs loaded%s\n", options);
++	else
++		pr_info("Btrfs loaded%s, read_policy=%s\n",
++			 options, btrfs_get_mod_read_policy());
++#else
+ 	pr_info("Btrfs loaded%s\n", options);
++#endif
++
+ 	return 0;
+ }
+ 

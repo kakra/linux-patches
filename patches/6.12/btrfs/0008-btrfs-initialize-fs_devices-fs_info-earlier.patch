@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Anand Jain <anand.jain@oracle.com>
+Date: Thu, 2 Jan 2025 02:06:30 +0800
+Subject: [PATCH] btrfs: initialize fs_devices->fs_info earlier
+
+Currently, fs_devices->fs_info is initialized in btrfs_init_devices_late(),
+but this occurs too late for find_live_mirror(), which is invoked by
+load_super_root() much earlier than btrfs_init_devices_late().
+
+Fix this by moving the initialization to open_ctree(), before load_super_root().
+
+Reviewed-by: Naohiro Aota <naohiro.aota@wdc.com>
+Signed-off-by: Anand Jain <anand.jain@oracle.com>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/disk-io.c | 1 +
+ fs/btrfs/volumes.c | 2 --
+ 2 files changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/fs/btrfs/disk-io.c b/fs/btrfs/disk-io.c
+index b11bfe68dd65f..a4d2c5bcd93c5 100644
+--- a/fs/btrfs/disk-io.c
++++ b/fs/btrfs/disk-io.c
+@@ -3324,6 +3324,7 @@ int __cold open_ctree(struct super_block *sb, struct btrfs_fs_devices *fs_device
+ 	fs_info->sectors_per_page = (PAGE_SIZE >> fs_info->sectorsize_bits);
+ 	fs_info->csums_per_leaf = BTRFS_MAX_ITEM_SIZE(fs_info) / fs_info->csum_size;
+ 	fs_info->stripesize = stripesize;
++	fs_info->fs_devices->fs_info = fs_info;
+ 
+ 	/*
+ 	 * Handle the space caching options appropriately now that we have the
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index 99d2c60ac2bf3..21cc02df8edf0 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -7577,8 +7577,6 @@ int btrfs_init_devices_late(struct btrfs_fs_info *fs_info)
+ 	struct btrfs_device *device;
+ 	int ret = 0;
+ 
+-	fs_devices->fs_info = fs_info;
+-
+ 	mutex_lock(&fs_devices->device_list_mutex);
+ 	list_for_each_entry(device, &fs_devices->devices, dev_list)
+ 		device->fs_info = fs_info;

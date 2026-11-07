@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Mon, 21 Apr 2025 05:07:22 +0200
+Subject: [PATCH] btrfs: tune age and burst for latency checkpoint
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/volumes.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index 191af0f0542e5..57df14b4df595 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -6013,7 +6013,7 @@ static int btrfs_read_preferred(struct btrfs_chunk_map *map, int first,
+  * Compute the average latency of the device by dividing total latency by
+  * number of IOs.
+  */
+-#define BTRFS_DEVICE_LATENCY_CHECKPOINT_AGE 10000
++#define BTRFS_DEVICE_LATENCY_CHECKPOINT_AGE 30000
+ static u64 btrfs_device_read_latency(struct btrfs_device *device)
+ {
+ 	u64 read_wait = part_stat_read(device->bdev, nsecs[READ]);
+@@ -6178,7 +6178,7 @@ static int btrfs_read_fastest_rr(struct btrfs_fs_info *fs_info,
+ }
+ #endif
+ 
+-#define BTRFS_DEVICE_LATENCY_CHECKPOINT_BURST_IO 100
++#define BTRFS_DEVICE_LATENCY_CHECKPOINT_BURST_IO 30
+ static int find_live_mirror(struct btrfs_fs_info *fs_info,
+ 			    struct btrfs_chunk_map *map, int first,
+ 			    int dev_replace_is_ongoing)

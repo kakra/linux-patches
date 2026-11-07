@@ -1,0 +1,109 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Fri, 25 Apr 2025 21:46:52 +0200
+Subject: [PATCH] btrfs: add in-flight queue read policy
+
+Select the preferred stripe based on a mirror with the least in-flight
+requests.
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/sysfs.c   |  3 ++-
+ fs/btrfs/volumes.c | 42 ++++++++++++++++++++++++++++++++++++++++++
+ fs/btrfs/volumes.h |  2 ++
+ 3 files changed, 46 insertions(+), 1 deletion(-)
+
+diff --git a/fs/btrfs/sysfs.c b/fs/btrfs/sysfs.c
+index 7ce9747117cd1..b36b08e6dfc88 100644
+--- a/fs/btrfs/sysfs.c
++++ b/fs/btrfs/sysfs.c
+@@ -1314,6 +1314,7 @@ static const char * const btrfs_read_policy_name[] = {
+ 	"round-robin",
+ 	"latency",
+ 	"latency-rr",
++	"queue",
+ 	"devid",
+ #endif
+ };
+@@ -1329,7 +1330,7 @@ char *btrfs_get_mod_read_policy(void)
+ /* Set perm 0, disable sys/module/btrfs/parameter/read_policy interface */
+ module_param(read_policy, charp, 0);
+ MODULE_PARM_DESC(read_policy,
+-"Global read policy; pid (default), round-robin[:min_contig_read], latency, latency-rr[:min_contig_read], devid[:devid]");
++"Global read policy; pid (default), round-robin[:min_contig_read], latency, latency-rr[:min_contig_read], queue, devid[:devid]");
+ #endif
+ 
+ int btrfs_read_policy_to_enum(const char *str, s64 *value)
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index 57df14b4df595..eb63382b4a158 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -6056,6 +6056,44 @@ static void btrfs_best_stripe(struct btrfs_fs_info *fs_info,
+ 	}
+ }
+ 
++static unsigned int part_in_flight(struct block_device *part)
++{
++	unsigned int inflight = 0;
++	int cpu;
++
++	for_each_possible_cpu(cpu) {
++		inflight += part_stat_local_read_cpu(part, in_flight[0], cpu) +
++			    part_stat_local_read_cpu(part, in_flight[1], cpu);
++	}
++	if ((int)inflight < 0)
++		inflight = 0;
++
++	return inflight;
++}
++
++/*
++ * btrfs_earliest_stripe
++ *
++ * Select a stripe from the device with shortest in-flight requests.
++ */
++static int btrfs_read_earliest(struct btrfs_fs_info *fs_info,
++                               struct btrfs_chunk_map *map, int first,
++                               int num_stripes)
++{
++	u64 best_in_flight = U64_MAX;
++	int best_stripe = 0;
++
++	for (int index = first; index < first + num_stripes; index++) {
++		u64 in_flight = part_in_flight(map->stripes[index].dev->bdev);
++		if (best_in_flight > in_flight) {
++			best_in_flight = in_flight;
++			best_stripe = index;
++		}
++	}
++
++	return best_stripe;
++}
++
+ static int btrfs_read_fastest(struct btrfs_fs_info *fs_info,
+                               struct btrfs_chunk_map *map, int first,
+                               int num_stripes)
+@@ -6231,6 +6269,10 @@ static int find_live_mirror(struct btrfs_fs_info *fs_info,
+ 		preferred_mirror = btrfs_read_fastest_rr(fs_info, map, first,
+ 		                                         num_stripes);
+ 		break;
++	case BTRFS_READ_POLICY_QUEUE:
++		preferred_mirror = btrfs_read_earliest(fs_info, map, first,
++		                                       num_stripes);
++		break;
+ #endif
+ 	}
+ 
+diff --git a/fs/btrfs/volumes.h b/fs/btrfs/volumes.h
+index 8906edbec4fd1..2c43365cff513 100644
+--- a/fs/btrfs/volumes.h
++++ b/fs/btrfs/volumes.h
+@@ -326,6 +326,8 @@ enum btrfs_read_policy {
+ 	BTRFS_READ_POLICY_LATENCY,
+ 	/* Use hybrid approach of lowest-latency and round-robin */
+ 	BTRFS_READ_POLICY_LATENCY_RR,
++	/* Read from the device with least in-flight requests */
++	BTRFS_READ_POLICY_QUEUE,
+ 	/* Read from the specific device */
+ 	BTRFS_READ_POLICY_DEVID,
+ #endif

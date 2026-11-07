@@ -1,0 +1,70 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Sun, 20 Apr 2025 22:10:02 +0200
+Subject: [PATCH] btrfs: stat latency checkpoints to get more insight
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/sysfs.c   | 17 ++++++++++++++---
+ fs/btrfs/volumes.c |  1 +
+ fs/btrfs/volumes.h |  1 +
+ 3 files changed, 16 insertions(+), 3 deletions(-)
+
+diff --git a/fs/btrfs/sysfs.c b/fs/btrfs/sysfs.c
+index b68139ce953d4..094c9486be071 100644
+--- a/fs/btrfs/sysfs.c
++++ b/fs/btrfs/sysfs.c
+@@ -2186,15 +2186,26 @@ static ssize_t btrfs_devinfo_read_stats_show(struct kobject *kobj,
+ 	struct btrfs_device *device = container_of(kobj, struct btrfs_device,
+ 						   devid_kobj);
+ 	u64 read_wait = part_stat_read(device->bdev, nsecs[READ]);
++	u64 last_nsecs_read = (u64)atomic64_read(&device->last_nsecs_read);
+ 	unsigned long read_ios = part_stat_read(device->bdev, ios[READ]);
++	unsigned long last_ios_read = (unsigned long)atomic64_read(&device->last_ios_read);
++	s64 delta_read_wait = read_wait - last_nsecs_read;
++	long delta_read_ios = read_ios - last_ios_read;
++	u64 avg_wait = 0, delta_avg_wait = 0;
+ 
+-	u64 avg_wait = 0;
+ 	if (read_wait && read_ios && read_wait >= read_ios)
+ 		avg_wait = div_u64(read_wait, read_ios);
+ 
+-	return scnprintf(buf, PAGE_SIZE, "ios %lu wait %llu avg %llu age %lld\n",
++	if (delta_read_wait > 0 && delta_read_ios > 0 && delta_read_wait >= delta_read_ios)
++		delta_avg_wait = div_u64(delta_read_wait, delta_read_ios);
++
++	return scnprintf(buf, PAGE_SIZE,
++	                 "cumulative ios %lu wait %llu avg %llu "
++	                 "checkpoint ios %ld wait %lld avg %llu "
++	                 "age %lld count %llu\n",
+ 	                 read_ios, read_wait, avg_wait,
+-	                 atomic64_read(&device->last_io_age));
++	                 delta_read_ios, delta_read_wait, delta_avg_wait,
++	                 atomic64_read(&device->last_io_age), atomic64_read(&device->checkpoints));
+ }
+ BTRFS_ATTR(devid, read_stats, btrfs_devinfo_read_stats_show);
+ #endif
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index cc559a50fa02e..5f4af64a2cd22 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -6269,6 +6269,7 @@ static int find_live_mirror(struct btrfs_fs_info *fs_info,
+ 
+ 		current_age = atomic64_read(&pref_dev->last_io_age);
+ 		if (current_age >= BTRFS_MAX_AGE_FOR_VALID_LATENCY) {
++			atomic64_inc(&pref_dev->checkpoints);
+ 			atomic64_set(&pref_dev->last_io_age, -BTRFS_OLD_AGE_IO_BURST);
+ 			atomic64_set(&pref_dev->last_nsecs_read, part_stat_read(pref_dev->bdev, nsecs[READ]));
+ 			atomic64_set(&pref_dev->last_ios_read, part_stat_read(pref_dev->bdev, ios[READ]));
+diff --git a/fs/btrfs/volumes.h b/fs/btrfs/volumes.h
+index cea9df414d3f6..88aa0057b51d5 100644
+--- a/fs/btrfs/volumes.h
++++ b/fs/btrfs/volumes.h
+@@ -201,6 +201,7 @@ struct btrfs_device {
+ #ifdef CONFIG_BTRFS_EXPERIMENTAL
+ 	/* store an age of last read access */
+ 	atomic64_t last_io_age;
++	atomic64_t checkpoints;
+ 
+ 	/* lock while updating values */
+ 	spinlock_t latency_lock;

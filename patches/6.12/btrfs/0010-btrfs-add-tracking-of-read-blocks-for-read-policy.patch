@@ -1,0 +1,118 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Anand Jain <anand.jain@oracle.com>
+Date: Thu, 2 Jan 2025 02:06:34 +0800
+Subject: [PATCH] btrfs: add tracking of read blocks for read policy
+
+Add fs_devices::read_cnt_blocks to track read blocks, initialize it in
+open_fs_devices() and clean it up in close_fs_devices().
+btrfs_submit_dev_bio() increments it for reads when stats tracking is
+enabled. Stats tracking is disabled by default and is enabled through
+fs_devices::fs_stats when required.
+
+The code is not under the EXPERIMENTAL define, as stats can be expanded
+to include write counts and other performance counters, with the user
+interface independent of its internal use.
+
+This is an in-memory-only feature, different to the dev error stats.
+
+Signed-off-by: Anand Jain <anand.jain@oracle.com>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/bio.c     | 8 ++++++++
+ fs/btrfs/disk-io.c | 5 +++++
+ fs/btrfs/fs.h      | 3 +++
+ fs/btrfs/volumes.c | 2 +-
+ fs/btrfs/volumes.h | 4 +++-
+ 5 files changed, 20 insertions(+), 2 deletions(-)
+
+diff --git a/fs/btrfs/bio.c b/fs/btrfs/bio.c
+index 7e0f9600b80c4..7583a9b74e22b 100644
+--- a/fs/btrfs/bio.c
++++ b/fs/btrfs/bio.c
+@@ -450,6 +450,14 @@ static void btrfs_submit_dev_bio(struct btrfs_device *dev, struct bio *bio)
+ 		(unsigned long)dev->bdev->bd_dev, btrfs_dev_name(dev),
+ 		dev->devid, bio->bi_iter.bi_size);
+ 
++	/*
++	 * Track reads if tracking is enabled; ignore I/O operations before
++	 * fully initialized.
++	 */
++	if (dev->fs_devices->fs_stats && bio_op(bio) == REQ_OP_READ && dev->fs_info)
++		percpu_counter_add(&dev->fs_info->stats_read_blocks,
++				   bio->bi_iter.bi_size >> dev->fs_info->sectorsize_bits);
++
+ 	if (bio->bi_opf & REQ_BTRFS_CGROUP_PUNT)
+ 		blkcg_punt_bio_submit(bio);
+ 	else
+diff --git a/fs/btrfs/disk-io.c b/fs/btrfs/disk-io.c
+index a4d2c5bcd93c5..277490cc5ae24 100644
+--- a/fs/btrfs/disk-io.c
++++ b/fs/btrfs/disk-io.c
+@@ -1259,6 +1259,7 @@ void btrfs_free_fs_info(struct btrfs_fs_info *fs_info)
+ {
+ 	struct percpu_counter *em_counter = &fs_info->evictable_extent_maps;
+ 
++	percpu_counter_destroy(&fs_info->stats_read_blocks);
+ 	percpu_counter_destroy(&fs_info->dirty_metadata_bytes);
+ 	percpu_counter_destroy(&fs_info->delalloc_bytes);
+ 	percpu_counter_destroy(&fs_info->ordered_bytes);
+@@ -2858,6 +2859,10 @@ static int init_mount_fs_info(struct btrfs_fs_info *fs_info, struct super_block
+ 	if (ret)
+ 		return ret;
+ 
++	ret = percpu_counter_init(&fs_info->stats_read_blocks, 0, GFP_KERNEL);
++	if (ret)
++		return ret;
++
+ 	fs_info->dirty_metadata_batch = PAGE_SIZE *
+ 					(1 + ilog2(nr_cpu_ids));
+ 
+diff --git a/fs/btrfs/fs.h b/fs/btrfs/fs.h
+index 79f64e383eddf..8960e141886b3 100644
+--- a/fs/btrfs/fs.h
++++ b/fs/btrfs/fs.h
+@@ -625,6 +625,9 @@ struct btrfs_fs_info {
+ 	struct kobject *qgroups_kobj;
+ 	struct kobject *discard_kobj;
+ 
++	/* Track the number of blocks (sectors) read by the filesystem. */
++	struct percpu_counter stats_read_blocks;
++
+ 	/* Used to keep from writing metadata until there is a nice batch */
+ 	struct percpu_counter dirty_metadata_bytes;
+ 	struct percpu_counter delalloc_bytes;
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index 21cc02df8edf0..df4dfdfce22a5 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -7678,7 +7678,7 @@ int btrfs_init_dev_stats(struct btrfs_fs_info *fs_info)
+ 	list_for_each_entry(device, &fs_devices->devices, dev_list) {
+ 		ret = btrfs_device_init_dev_stats(device, path);
+ 		if (ret)
+-			goto out;
++			return ret;
+ 	}
+ 	list_for_each_entry(seed_devs, &fs_devices->seed_list, seed_list) {
+ 		list_for_each_entry(device, &seed_devs->devices, dev_list) {
+diff --git a/fs/btrfs/volumes.h b/fs/btrfs/volumes.h
+index f3c5437e270a2..91a2358b74c91 100644
+--- a/fs/btrfs/volumes.h
++++ b/fs/btrfs/volumes.h
+@@ -185,7 +185,7 @@ struct btrfs_device {
+ 	 * enum btrfs_dev_stat_values in ioctl.h */
+ 	int dev_stats_valid;
+ 
+-	/* Counter to record the change of device stats */
++	/* Counter to record of the change of device stats */
+ 	atomic_t dev_stats_ccnt;
+ 	atomic_t dev_stat_values[BTRFS_DEV_STAT_VALUES_MAX];
+ 
+@@ -417,6 +417,8 @@ struct btrfs_fs_devices {
+ 	bool seeding;
+ 	/* The mount needs to use a randomly generated fsid. */
+ 	bool temp_fsid;
++	/* Enable/disable the filesystem stats tracking */
++	bool fs_stats;
+ 
+ 	struct btrfs_fs_info *fs_info;
+ 	/* sysfs kobjects */

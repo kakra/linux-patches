@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Anand Jain <anand.jain@oracle.com>
+Date: Thu, 2 Jan 2025 02:06:37 +0800
+Subject: [PATCH] btrfs: expose experimental mode in module information
+
+Commit c9c49e8f157e ("btrfs: split out CONFIG_BTRFS_EXPERIMENTAL from
+CONFIG_BTRFS_DEBUG") introduces a way to enable or disable experimental
+features, print its status during module load, like so:
+
+   Btrfs loaded, experimental=on, debug=on, assert=on, zoned=yes, fsverity=yes
+
+Signed-off-by: Anand Jain <anand.jain@oracle.com>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/super.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/fs/btrfs/super.c b/fs/btrfs/super.c
+index c64d071341223..4742bb2af601a 100644
+--- a/fs/btrfs/super.c
++++ b/fs/btrfs/super.c
+@@ -2468,6 +2468,9 @@ static __cold void btrfs_interface_exit(void)
+ static int __init btrfs_print_mod_info(void)
+ {
+ 	static const char options[] = ""
++#ifdef CONFIG_BTRFS_EXPERIMENTAL
++			", experimental=on"
++#endif
+ #ifdef CONFIG_BTRFS_DEBUG
+ 			", debug=on"
+ #endif

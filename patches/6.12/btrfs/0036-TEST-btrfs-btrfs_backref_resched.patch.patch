@@ -1,0 +1,92 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Filipe Manana <fdmanana@kernel.org>
+Date: Mon, 23 Jun 2025 13:56:36 +0200
+Subject: [PATCH] TEST: btrfs: btrfs_backref_resched.patch
+
+> kernel: rcu: INFO: rcu_sched self-detected stall on CPU
+> kernel: rcu:         10-....: (2100 ticks this GP) idle=0494/1/0x4000000000000000 softirq=164826140/164826187 fqs=1052
+> kernel: rcu:         (t=2100 jiffies g=358306033 q=2241752 ncpus=16)
+> kernel: CPU: 10 UID: 0 PID: 1524681 Comm: map_0x178e45670 Not tainted 6.12.21-gentoo #1
+> kernel: Hardware name: Red Hat KVM, BIOS 0.5.1 01/01/2011
+> kernel: RIP: 0010:btrfs_get_64+0x65/0x110
+> kernel: Code: d3 ed 48 8b 4f 70 48 8b 31 83 e6 40 74 11 0f b6 49 40 41 bc 00 10 00 00 49 d3 e4 49 83 ec 01 4a 8b 5c ed 70 49 21 d4 45 89 c9 <48> 2b 1d 7c 99 09 01 49 01 c1 8b 55 08 49 8d 49 08 44 8b 75 0c 48
+> kernel: RSP: 0018:ffffbb7ad531bba0 EFLAGS: 00000202
+> kernel: RAX: 0000000000001f15 RBX: fffff437ea382200 RCX: fffff437cb891200
+> kernel: RDX: 000001922b68df2a RSI: 0000000000000000 RDI: ffffa434c3e66d20
+> kernel: RBP: ffffa434c3e66d20 R08: 000001922b68c000 R09: 0000000000000015
+> kernel: R10: 6c0000000000000a R11: 0000000009fe7000 R12: 0000000000000f2a
+> kernel: R13: 0000000000000001 R14: ffffa43192e6d230 R15: ffffa43160c4c800
+> kernel: FS:  000055d07085e6c0(0000) GS:ffffa4452bc80000(0000) knlGS:0000000000000000
+> kernel: CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> kernel: CR2: 00007fff204ecfc0 CR3: 0000000121a0b000 CR4: 00000000001506f0
+> kernel: DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+> kernel: DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
+> kernel: Call Trace:
+> kernel:  <IRQ>
+> kernel:  ? rcu_dump_cpu_stacks+0xd3/0x100
+> kernel:  ? rcu_sched_clock_irq+0x4ff/0x920
+> kernel:  ? update_process_times+0x6c/0xa0
+> kernel:  ? tick_nohz_handler+0x82/0x110
+> kernel:  ? tick_do_update_jiffies64+0xd0/0xd0
+> kernel:  ? __hrtimer_run_queues+0x10b/0x190
+> kernel:  ? hrtimer_interrupt+0xf1/0x200
+> kernel:  ? __sysvec_apic_timer_interrupt+0x44/0x50
+> kernel:  ? sysvec_apic_timer_interrupt+0x60/0x80
+> kernel:  </IRQ>
+> kernel:  <TASK>
+> kernel:  ? asm_sysvec_apic_timer_interrupt+0x16/0x20
+> kernel:  ? btrfs_get_64+0x65/0x110
+> kernel:  find_parent_nodes+0x1b84/0x1dc0
+> kernel:  btrfs_find_all_leafs+0x31/0xd0
+> kernel:  ? queued_write_lock_slowpath+0x30/0x70
+> kernel:  iterate_extent_inodes+0x6f/0x370
+> kernel:  ? update_share_count+0x60/0x60
+> kernel:  ? extent_from_logical+0x139/0x190
+> kernel:  ? release_extent_buffer+0x96/0xb0
+> kernel:  iterate_inodes_from_logical+0xaa/0xd0
+> kernel:  btrfs_ioctl_logical_to_ino+0xaa/0x150
+> kernel:  __x64_sys_ioctl+0x84/0xc0
+> kernel:  do_syscall_64+0x47/0x100
+> kernel:  entry_SYSCALL_64_after_hwframe+0x4b/0x53
+> kernel: RIP: 0033:0x55d07617eaaf
+> kernel: Code: 00 48 89 44 24 18 31 c0 48 8d 44 24 60 c7 04 24 10 00 00 00 48 89 44 24 08 48 8d 44 24 20 48 89 44 24 10 b8 10 00 00 00 0f 05 <89> c2 3d 00 f0 ff ff 77 18 48 8b 44 24 18 64 48 2b 04 25 28 00 00
+> kernel: RSP: 002b:000055d07085bc20 EFLAGS: 00000246 ORIG_RAX: 0000000000000010
+> kernel: RAX: ffffffffffffffda RBX: 000055d0402f8550 RCX: 000055d07617eaaf
+> kernel: RDX: 000055d07085bca0 RSI: 00000000c038943b RDI: 0000000000000003
+> kernel: RBP: 000055d07085bea0 R08: 00007fee46c84080 R09: 0000000000000000
+> kernel: R10: 0000000000000000 R11: 0000000000000246 R12: 0000000000000003
+> kernel: R13: 000055d07085bf80 R14: 000055d07085bf48 R15: 000055d07085c0b0
+> kernel:  </TASK>
+
+The RCU stall could be because there's a large number of backrefs for
+some extents and we're spending too much time looping over them
+without ever yielding the cpu.
+
+Link: https://lore.kernel.org/linux-btrfs/CAMthOuP_AE9OwiTQCrh7CK73xdTZvHsLTB1JU2WBK6cCc05JYg@mail.gmail.com/T/#md2e3504a1885c63531f8eefc70c94cff571b7a72
+Signed-off-by: Kai Krakow <kk@netactive.de>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/backref.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/fs/btrfs/backref.c b/fs/btrfs/backref.c
+index f8e1d5b2c5128..d0492b1c9486c 100644
+--- a/fs/btrfs/backref.c
++++ b/fs/btrfs/backref.c
+@@ -1127,6 +1127,7 @@ static int add_inline_refs(struct btrfs_backref_walk_ctx *ctx,
+ 		if (ret)
+ 			return ret;
+ 		ptr += btrfs_extent_inline_ref_size(type);
++		cond_resched();
+ 	}
+ 
+ 	return 0;
+@@ -1230,7 +1231,7 @@ static int add_keyed_refs(struct btrfs_backref_walk_ctx *ctx,
+ 		}
+ 		if (ret)
+ 			return ret;
+-
++		cond_resched();
+ 	}
+ 
+ 	return ret;

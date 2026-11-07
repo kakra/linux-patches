@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Anand Jain <anand.jain@oracle.com>
+Date: Thu, 2 Jan 2025 02:06:33 +0800
+Subject: [PATCH] btrfs: handle value associated with read policy parameter
+
+This change enables specifying additional configuration values alongside
+the read policy in a single input string.
+
+Updated btrfs_read_policy_to_enum() to parse and handle a value associated
+with the policy in the format `policy:value`, the value part if present is
+converted 64-bit integer. Update btrfs_read_policy_store() to accommodate
+the new parameter.
+
+Signed-off-by: Anand Jain <anand.jain@oracle.com>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/sysfs.c | 16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
+
+diff --git a/fs/btrfs/sysfs.c b/fs/btrfs/sysfs.c
+index 8540af0807648..b0e624c0598f4 100644
+--- a/fs/btrfs/sysfs.c
++++ b/fs/btrfs/sysfs.c
+@@ -1307,15 +1307,26 @@ BTRFS_ATTR(, temp_fsid, btrfs_temp_fsid_show);
+ 
+ static const char * const btrfs_read_policy_name[] = { "pid" };
+ 
+-static int btrfs_read_policy_to_enum(const char *str)
++static int btrfs_read_policy_to_enum(const char *str, s64 *value)
+ {
+ 	char param[32] = {'\0'};
++	char *__maybe_unused value_str;
+ 
+ 	if (!str || strlen(str) == 0)
+ 		return 0;
+ 
+ 	strncpy(param, str, sizeof(param) - 1);
+ 
++#ifdef CONFIG_BTRFS_EXPERIMENTAL
++	/* Separate value from input in policy:value format. */
++	if ((value_str = strchr(param, ':'))) {
++		*value_str = '\0';
++		value_str++;
++		if (value && kstrtou64(value_str, 10, value) != 0)
++			return -EINVAL;
++	}
++#endif
++
+ 	return sysfs_match_string(btrfs_read_policy_name, param);
+ }
+ 
+@@ -1351,8 +1362,9 @@ static ssize_t btrfs_read_policy_store(struct kobject *kobj,
+ {
+ 	struct btrfs_fs_devices *fs_devices = to_fs_devs(kobj);
+ 	int index;
++	s64 value = -1;
+ 
+-	index = btrfs_read_policy_to_enum(buf);
++	index = btrfs_read_policy_to_enum(buf, &value);
+ 	if (index < 0)
+ 		return -EINVAL;
+ 

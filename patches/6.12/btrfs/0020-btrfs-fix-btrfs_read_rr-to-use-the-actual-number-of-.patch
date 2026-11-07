@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Wed, 9 Apr 2025 15:21:14 +0200
+Subject: [PATCH] btrfs: fix btrfs_read_rr to use the actual number of stripes
+
+While num_stripes is identical to index at the end of the loop, index
+is really the correct number of indexed stripes for sorting. This
+prepares the function to work with filtered sets of stripes.
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/volumes.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index 6fc45b079331a..006a10871388f 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -6098,21 +6098,22 @@ static int btrfs_read_rr(struct btrfs_chunk_map *map, int first, int num_stripe)
+ 	unsigned int read_cycle;
+ 	unsigned int total_reads;
+ 	unsigned int min_reads_per_dev;
++	int count_stripes = 0;
+ 
+ 	total_reads = percpu_counter_sum(&fs_info->stats_read_blocks);
+ 	min_reads_per_dev = READ_ONCE(fs_info->fs_devices->rr_min_contig_read) >>
+ 						       fs_info->sectorsize_bits;
+ 
+-	for (int index = 0, i = first; i < first + num_stripe; i++) {
+-		stripes[index].devid = map->stripes[i].dev->devid;
+-		stripes[index].num = i;
+-		index++;
++	for (int i = first; i < first + num_stripe; i++) {
++		stripes[count_stripes].devid = map->stripes[i].dev->devid;
++		stripes[count_stripes].num = i;
++		count_stripes++;
+ 	}
+-	sort(stripes, num_stripe, sizeof(struct stripe_mirror),
++	sort(stripes, count_stripes, sizeof(struct stripe_mirror),
+ 	     btrfs_cmp_devid, NULL);
+ 
+ 	read_cycle = total_reads / min_reads_per_dev;
+-	return stripes[read_cycle % num_stripe].num;
++	return stripes[read_cycle % count_stripes].num;
+ }
+ #endif
+ 

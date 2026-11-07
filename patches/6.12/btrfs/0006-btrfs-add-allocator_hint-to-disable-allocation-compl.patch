@@ -1,0 +1,73 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Fri, 6 Dec 2024 00:55:31 +0100
+Subject: [PATCH] btrfs: add allocator_hint to disable allocation completely
+
+This is useful where you want to prevent new allocations of chunks to
+a set of multiple disks which are going to be removed from the pool.
+This acts as a multiple `btrfs dev remove` on steroids that can remove
+multiple disks in parallel without moving data to disks which would be
+removed in the next round. In such cases, it will avoid moving the
+same data multiple times, and thus avoid placing it on potentially bad
+disks.
+
+Thanks to @Zygo for the explanation and suggestion.
+
+Link: https://github.com/kdave/btrfs-progs/issues/907#issuecomment-2520897104
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/volumes.c              | 11 +++++++++++
+ include/uapi/linux/btrfs_tree.h |  4 +++-
+ 2 files changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index c6aa93fae9aa6..99d2c60ac2bf3 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -190,6 +190,7 @@ enum btrfs_raid_types __attribute_const__ btrfs_bg_flags_to_raid_index(u64 flags
+ 		BTRFS_DEV_ALLOCATION_MASK_BIT_COUNT)
+ 
+ static const char alloc_hint_map[BTRFS_DEV_ALLOCATION_MASK_COUNT] = {
++	[BTRFS_DEV_ALLOCATION_NONE_ONLY] = -99,
+ 	[BTRFS_DEV_ALLOCATION_DATA_ONLY] = -1,
+ 	[BTRFS_DEV_ALLOCATION_PREFERRED_DATA] = 0,
+ 	[BTRFS_DEV_ALLOCATION_PREFERRED_METADATA] = 1,
+@@ -5271,6 +5272,11 @@ static int gather_device_info(struct btrfs_fs_devices *fs_devices,
+ 			 */
+ 			if (hint == BTRFS_DEV_ALLOCATION_METADATA_ONLY)
+ 				continue;
++			/*
++			 * skip BTRFS_DEV_NONE_ONLY disks
++			 */
++			if (hint == BTRFS_DEV_ALLOCATION_NONE_ONLY)
++				continue;
+ 			/*
+ 			 * if a data chunk must be allocated,
+ 			 * sort also by hint (data disk
+@@ -5285,6 +5291,11 @@ static int gather_device_info(struct btrfs_fs_devices *fs_devices,
+ 			 */
+ 			if (hint == BTRFS_DEV_ALLOCATION_DATA_ONLY)
+ 				continue;
++			/*
++			 * skip BTRFS_DEV_NONE_ONLY disks
++			 */
++			if (hint == BTRFS_DEV_ALLOCATION_NONE_ONLY)
++				continue;
+ 			/*
+ 			 * if a data chunk must be allocated,
+ 			 * sort also by hint (metadata hint
+diff --git a/include/uapi/linux/btrfs_tree.h b/include/uapi/linux/btrfs_tree.h
+index 92bcc59b129a9..3db20734aacfc 100644
+--- a/include/uapi/linux/btrfs_tree.h
++++ b/include/uapi/linux/btrfs_tree.h
+@@ -592,7 +592,9 @@ struct btrfs_node {
+ #define BTRFS_DEV_ALLOCATION_DATA_ONLY		(3ULL)
+ /* preferred no chunk, but chunks allowed */
+ #define BTRFS_DEV_ALLOCATION_PREFERRED_NONE	(4ULL)
+-/* 5..7 are unused values */
++/* no chunks allowed */
++#define BTRFS_DEV_ALLOCATION_NONE_ONLY	        (5ULL)
++/* 6..7 are unused values */
+ 
+ struct btrfs_dev_item {
+ 	/* the internal btrfs device id */

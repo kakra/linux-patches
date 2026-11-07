@@ -1,0 +1,93 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Wed, 16 Apr 2025 22:52:14 +0200
+Subject: [PATCH] btrfs: add last IO age to sysfs read_stats
+
+Each time a stripe is going to be selected, increase a counter in each
+possible stripe. After selecting a stripe, reset the counter to zero.
+This way we can measure how long a stripe hasn't been selected. This
+could be used to add a probabilistic read to devices that have been
+slow in the past.
+
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/sysfs.c   |  4 +++-
+ fs/btrfs/volumes.c | 21 ++++++++++++++++++---
+ fs/btrfs/volumes.h |  5 +++++
+ 3 files changed, 26 insertions(+), 4 deletions(-)
+
+diff --git a/fs/btrfs/sysfs.c b/fs/btrfs/sysfs.c
+index 106e19cfd726b..c32bb786d3418 100644
+--- a/fs/btrfs/sysfs.c
++++ b/fs/btrfs/sysfs.c
+@@ -2192,7 +2192,9 @@ static ssize_t btrfs_devinfo_read_stats_show(struct kobject *kobj,
+ 	if (read_wait && read_ios && read_wait >= read_ios)
+ 		avg_wait = div_u64(read_wait, read_ios);
+ 
+-	return scnprintf(buf, PAGE_SIZE, "ios %lu wait %llu avg %llu\n", read_ios, read_wait, avg_wait);
++	return scnprintf(buf, PAGE_SIZE, "ios %lu wait %llu avg %llu age %llu\n",
++	                 read_ios, read_wait, avg_wait,
++	                 (u64)atomic64_read(&device->last_io_age));
+ }
+ BTRFS_ATTR(devid, read_stats, btrfs_devinfo_read_stats_show);
+ #endif
+diff --git a/fs/btrfs/volumes.c b/fs/btrfs/volumes.c
+index 2807d4cc51114..68c0fd2770bc9 100644
+--- a/fs/btrfs/volumes.c
++++ b/fs/btrfs/volumes.c
+@@ -6190,6 +6190,13 @@ static int find_live_mirror(struct btrfs_fs_info *fs_info,
+ 	else
+ 		num_stripes = map->num_stripes;
+ 
++#ifdef CONFIG_BTRFS_EXPERIMENTAL
++	/* age each possible stripe by 1 IO */
++	for (int i = first; i < first + num_stripes; i++) {
++		atomic64_inc(&map->stripes[i].dev->last_io_age);
++	}
++#endif
++
+ 	switch (policy) {
+ 	default:
+ 		/* Shouldn't happen, just warn and use pid instead of failing */
+@@ -6233,14 +6240,22 @@ static int find_live_mirror(struct btrfs_fs_info *fs_info,
+ 	for (tolerance = 0; tolerance < 2; tolerance++) {
+ 		if (map->stripes[preferred_mirror].dev->bdev &&
+ 		    (tolerance || map->stripes[preferred_mirror].dev != srcdev))
+-			return preferred_mirror;
++			goto out;
+ 		for (i = first; i < first + num_stripes; i++) {
+ 			if (map->stripes[i].dev->bdev &&
+-			    (tolerance || map->stripes[i].dev != srcdev))
+-				return i;
++			    (tolerance || map->stripes[i].dev != srcdev)) {
++				preferred_mirror = i;
++				goto out;
++			}
+ 		}
+ 	}
+ 
++out:
++#ifdef CONFIG_BTRFS_EXPERIMENTAL
++	/* reset age of selected stripe */
++	atomic64_set(&map->stripes[preferred_mirror].dev->last_io_age, 0);
++#endif
++
+ 	/* we couldn't find one that doesn't fail.  Just return something
+ 	 * and the io error handling code will clean up eventually
+ 	 */
+diff --git a/fs/btrfs/volumes.h b/fs/btrfs/volumes.h
+index a6e8a722d9c74..f2807a7463bf1 100644
+--- a/fs/btrfs/volumes.h
++++ b/fs/btrfs/volumes.h
+@@ -197,6 +197,11 @@ struct btrfs_device {
+ 
+ 	/* Bandwidth limit for scrub, in bytes */
+ 	u64 scrub_speed_max;
++
++#ifdef CONFIG_BTRFS_EXPERIMENTAL
++	/* store an age of last read access */
++	atomic64_t last_io_age;
++#endif
+ };
+ 
+ /*

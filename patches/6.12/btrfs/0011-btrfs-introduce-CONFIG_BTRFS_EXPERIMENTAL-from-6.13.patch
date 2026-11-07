@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Mon, 16 Sep 2024 18:18:25 +0930
+Subject: [PATCH] btrfs: introduce CONFIG_BTRFS_EXPERIMENTAL from 6.13
+
+CONFIG_BTRFS_EXPERIMENTAL is needed by the RAID1 balancing patches but
+we don't want to use the full scope of the 6.13 patch because it also
+affects features currently masked via CONFIG_BTRFS_DEBUG.
+
+TODO: Drop during rebase to 6.13 or later.
+Original-author: Qu Wenruo <wqu@suse.com>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/Kconfig | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/fs/btrfs/Kconfig b/fs/btrfs/Kconfig
+index 4fb925e8c981d..ead317f1eeb85 100644
+--- a/fs/btrfs/Kconfig
++++ b/fs/btrfs/Kconfig
+@@ -78,6 +78,15 @@ config BTRFS_ASSERT
+ 
+ 	  If unsure, say N.
+ 
++config BTRFS_EXPERIMENTAL
++	bool "Btrfs experimental features"
++	depends on BTRFS_FS
++	help
++	  Enable experimental features.  These features may not be stable enough
++	  for end users.  This is meant for btrfs developers only.
++
++	  If unsure, say N.
++
+ config BTRFS_FS_REF_VERIFY
+ 	bool "Btrfs with the ref verify tool compiled in"
+ 	depends on BTRFS_FS

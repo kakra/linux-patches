@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Anand Jain <anand.jain@oracle.com>
+Date: Thu, 2 Jan 2025 02:06:31 +0800
+Subject: [PATCH] btrfs: simplify output formatting in btrfs_read_policy_show
+
+Refactor the logic in btrfs_read_policy_show() to streamline the
+formatting of read policies output. Streamline the space and bracket
+handling around the active policy without altering the functional output.
+This is in preparation to add more methods.
+
+Signed-off-by: Anand Jain <anand.jain@oracle.com>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ fs/btrfs/sysfs.c | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/fs/btrfs/sysfs.c b/fs/btrfs/sysfs.c
+index 3675d961b39a2..cde47f1c11757 100644
+--- a/fs/btrfs/sysfs.c
++++ b/fs/btrfs/sysfs.c
+@@ -1316,14 +1316,16 @@ static ssize_t btrfs_read_policy_show(struct kobject *kobj,
+ 	int i;
+ 
+ 	for (i = 0; i < BTRFS_NR_READ_POLICY; i++) {
+-		if (policy == i)
+-			ret += sysfs_emit_at(buf, ret, "%s[%s]",
+-					 (ret == 0 ? "" : " "),
+-					 btrfs_read_policy_name[i]);
+-		else
+-			ret += sysfs_emit_at(buf, ret, "%s%s",
+-					 (ret == 0 ? "" : " "),
+-					 btrfs_read_policy_name[i]);
++		if (ret != 0)
++			ret += sysfs_emit_at(buf, ret, " ");
++
++		if (i == policy)
++			ret += sysfs_emit_at(buf, ret, "[");
++
++		ret += sysfs_emit_at(buf, ret, "%s", btrfs_read_policy_name[i]);
++
++		if (i == policy)
++			ret += sysfs_emit_at(buf, ret, "]");
+ 	}
+ 
+ 	ret += sysfs_emit_at(buf, ret, "\n");
