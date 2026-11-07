@@ -1,0 +1,5 @@
+0001-btrfs-add-flags-to-give-an-hint-to-the-chunk-allocat.patch
+0002-btrfs-export-dev_item.type-in-sys-fs-btrfs-uuid-devi.patch
+0003-btrfs-change-the-DEV_ITEM-type-field-via-sysfs.patch
+0004-btrfs-add-allocator_hint-mode.patch
+0005-btrfs-add-allocator_hint-for-no-allocation-preferred.patch
