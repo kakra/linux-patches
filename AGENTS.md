@@ -32,6 +32,17 @@ rules.
   "applies, not built"; one that was built but not booted is "built, not
   tested".
 
+## Benchmarks and observations
+
+- `benchmarks/<date>-<topic>/README.md` follows `benchmarks/TEMPLATE.md`.
+  Scripts go to `tools/bench/`. Compress raw data with `xz` and replace
+  file system UUIDs with `<fsid>`; no host names, home paths, user names,
+  serial or MAC addresses.
+- `observations/<version>.md` collects dated notes on how the system
+  behaves, with the system state (`tools/state.sh`) and the suspected
+  cause marked as a guess. Add follow-ups, don't rewrite old entries.
+- Results of other people keep their author and a link to the source.
+
 ## Commit messages
 
 ```
@@ -48,7 +59,8 @@ Co-Authored-By: ...
 - `<area>` is one of `repo` (top-level files such as README, LICENSE,
   HISTORY.md, AGENTS.md), `series` (submodule entries without an export,
   e.g. dropping a series), `patches` (an export together with its pin),
-  `base` (the pin of the `base/` submodule), `tools`, `docs`.
+  `base` (the pin of the `base/` submodule), `tools`, `docs`,
+  `benchmarks`, `observations`.
 - The summary is imperative and lower case, without a final period, and the
   whole subject line has at most 72 characters.
 - The `References:` list is optional and plain text (see the rule above).
