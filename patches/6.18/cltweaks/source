@@ -1,0 +1,5 @@
+branch=rebase-6.18/cltweaks
+base=v6.18
+head=9ee58f98a9eea965b5788152be4e098a964c115f
+date=2025-12-14
+pr=43

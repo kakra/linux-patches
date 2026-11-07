@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kai Krakow <kai@kaishome.de>
+Date: Sun, 14 Dec 2025 15:27:08 +0100
+Subject: [PATCH] timer slack
+
+Author: Intel ClearLinux <unknown>
+Signed-off-by: Kai Krakow <kai@kaishome.de>
+---
+ init/init_task.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/init/init_task.c b/init/init_task.c
+index a55e2189206fa..be4ced220eb74 100644
+--- a/init/init_task.c
++++ b/init/init_task.c
+@@ -143,7 +143,7 @@ struct task_struct init_task __aligned(L1_CACHE_BYTES) = {
+ 	.journal_info	= NULL,
+ 	INIT_CPU_TIMERS(init_task)
+ 	.pi_lock	= __RAW_SPIN_LOCK_UNLOCKED(init_task.pi_lock),
+-	.timer_slack_ns = 50000, /* 50 usec default slack */
++	.timer_slack_ns = 50, /* 50 nsec default slack */
+ 	.thread_pid	= &init_struct_pid,
+ 	.thread_node	= LIST_HEAD_INIT(init_signals.thread_head),
+ #ifdef CONFIG_AUDIT
