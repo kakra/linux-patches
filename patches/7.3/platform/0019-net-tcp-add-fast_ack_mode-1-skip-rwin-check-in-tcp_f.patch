@@ -22,7 +22,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  4 files changed, 7 insertions(+), 3 deletions(-)
 
 diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 6a8c77719322f..5f49608e545a8 100644
+index 6a8c77719322..5f49608e545a 100644
 --- a/include/linux/tcp.h
 +++ b/include/linux/tcp.h
 @@ -232,7 +232,8 @@ struct tcp_sock {
@@ -36,7 +36,7 @@ index 6a8c77719322f..5f49608e545a8 100644
  
  	/* RX read-mostly hotpath cache lines */
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index f7aacca44c0c5..824c278fba1e8 100644
+index f7aacca44c0c..824c278fba1e 100644
 --- a/net/ipv4/tcp.c
 +++ b/net/ipv4/tcp.c
 @@ -3484,6 +3484,7 @@ int tcp_disconnect(struct sock *sk, int flags)
@@ -48,7 +48,7 @@ index f7aacca44c0c5..824c278fba1e8 100644
  
  	/* Clean up fastopen related fields */
 diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-index 8e83ef81fc187..50e6c89ad2cbf 100644
+index 8e83ef81fc18..50e6c89ad2cb 100644
 --- a/net/ipv4/tcp_cong.c
 +++ b/net/ipv4/tcp_cong.c
 @@ -238,6 +238,7 @@ void tcp_init_congestion_control(struct sock *sk)
@@ -60,7 +60,7 @@ index 8e83ef81fc187..50e6c89ad2cbf 100644
  		icsk->icsk_ca_ops->init(sk);
  	if (tcp_ca_needs_ecn(sk))
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index f651b7b40c546..7dc58c30149c0 100644
+index f651b7b40c54..7dc58c30149c 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -6148,13 +6148,14 @@ static void __tcp_ack_snd_check(struct sock *sk, int ofo_possible)

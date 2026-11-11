@@ -16,7 +16,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  1 file changed, 1 insertion(+)
 
 diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index 3a39a992af5db..2ac873aedcfea 100644
+index 3a39a992af5d..2ac873aedcfe 100644
 --- a/net/ipv4/Kconfig
 +++ b/net/ipv4/Kconfig
 @@ -759,6 +759,7 @@ config DEFAULT_TCP_CONG

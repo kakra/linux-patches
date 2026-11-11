@@ -25,7 +25,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  2 files changed, 11 insertions(+), 6 deletions(-)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 4416cdf9bf30e..bf95c54af1934 100644
+index 4416cdf9bf30..bf95c54af193 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
 @@ -1028,6 +1028,11 @@ static inline u32 tcp_stamp_us_delta(u64 t1, u64 t0)
@@ -53,7 +53,7 @@ index 4416cdf9bf30e..bf95c54af1934 100644
  		union {
  			struct inet_skb_parm	h4;
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 378a825c35b33..737df4a71ecae 100644
+index 378a825c35b3..737df4a71eca 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -1762,7 +1762,7 @@ static void tcp_rate_gen(struct sock *sk, u32 delivered, u32 lost,

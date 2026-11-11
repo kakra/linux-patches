@@ -44,7 +44,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  1 file changed, 11 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/input/evdev.c b/drivers/input/evdev.c
-index 8bfaaa45e0b95..cc3777938374d 100644
+index 8bfaaa45e0b9..cc3777938374 100644
 --- a/drivers/input/evdev.c
 +++ b/drivers/input/evdev.c
 @@ -47,6 +47,7 @@ struct evdev_client {

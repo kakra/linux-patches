@@ -39,7 +39,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  1 file changed, 11 insertions(+)
 
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 7791f52abb6f8..f651b7b40c546 100644
+index 7791f52abb6f..f651b7b40c54 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -1882,6 +1882,17 @@ static bool tcp_shifted_skb(struct sock *sk, struct sk_buff *prev,

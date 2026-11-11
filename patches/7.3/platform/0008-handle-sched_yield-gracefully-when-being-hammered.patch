@@ -16,7 +16,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  1 file changed, 12 insertions(+)
 
 diff --git a/kernel/sched/syscalls.c b/kernel/sched/syscalls.c
-index b215b0ead9a60..a47e70232d6d3 100644
+index b215b0ead9a6..a47e70232d6d 100644
 --- a/kernel/sched/syscalls.c
 +++ b/kernel/sched/syscalls.c
 @@ -1332,10 +1332,22 @@ SYSCALL_DEFINE3(sched_getaffinity, pid_t, pid, unsigned int, len,

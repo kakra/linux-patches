@@ -159,7 +159,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  create mode 100644 net/ipv4/tcp_bbr3.c
 
 diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
-index 433c2df23076d..ce51146bd6af0 100644
+index 433c2df23076..ce51146bd6af 100644
 --- a/include/net/inet_connection_sock.h
 +++ b/include/net/inet_connection_sock.h
 @@ -138,8 +138,8 @@ struct inet_connection_sock {
@@ -174,7 +174,7 @@ index 433c2df23076d..ce51146bd6af0 100644
  
  #define ICSK_TIME_RETRANS	1	/* Retransmit timer */
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 2ccb3be2db8f2..4c46290cfdaa7 100644
+index 2ccb3be2db8f..4c46290cfdaa 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
 @@ -2696,7 +2696,7 @@ struct tcp_plb_state {
@@ -187,7 +187,7 @@ index 2ccb3be2db8f2..4c46290cfdaa7 100644
  static inline void tcp_plb_init(const struct sock *sk,
  				struct tcp_plb_state *plb)
 diff --git a/include/uapi/linux/inet_diag.h b/include/uapi/linux/inet_diag.h
-index 21f0d735fbae2..80794f609cfe5 100644
+index 21f0d735fbae..80794f609cfe 100644
 --- a/include/uapi/linux/inet_diag.h
 +++ b/include/uapi/linux/inet_diag.h
 @@ -238,6 +238,29 @@ struct tcp_bbr_info {
@@ -221,7 +221,7 @@ index 21f0d735fbae2..80794f609cfe5 100644
  
  union tcp_cc_info {
 diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index 301b47660305b..3a39a992af5db 100644
+index 301b47660305..3a39a992af5d 100644
 --- a/net/ipv4/Kconfig
 +++ b/net/ipv4/Kconfig
 @@ -667,8 +667,7 @@ config TCP_CONG_BBR
@@ -270,7 +270,7 @@ index 301b47660305b..3a39a992af5db 100644
  		bool "Reno"
  endchoice
 diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
-index 06e21c26b76f2..21598216d4d89 100644
+index 06e21c26b76f..21598216d4d8 100644
 --- a/net/ipv4/Makefile
 +++ b/net/ipv4/Makefile
 @@ -45,6 +45,7 @@ obj-$(CONFIG_INET_TCP_DIAG) += tcp_diag.o
@@ -283,7 +283,7 @@ index 06e21c26b76f2..21598216d4d89 100644
  obj-$(CONFIG_TCP_CONG_CUBIC) += tcp_cubic.o
 diff --git a/net/ipv4/tcp_bbr3.c b/net/ipv4/tcp_bbr3.c
 new file mode 100644
-index 0000000000000..d7070bbffed7c
+index 000000000000..d7070bbffed7
 --- /dev/null
 +++ b/net/ipv4/tcp_bbr3.c
 @@ -0,0 +1,2271 @@

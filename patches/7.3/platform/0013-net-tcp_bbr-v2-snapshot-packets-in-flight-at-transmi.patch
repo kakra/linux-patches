@@ -27,7 +27,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  3 files changed, 26 insertions(+)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index bf95c54af1934..fed26918df543 100644
+index bf95c54af193..fed26918df54 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
 @@ -1149,6 +1149,10 @@ struct tcp_skb_cb {
@@ -50,7 +50,7 @@ index bf95c54af1934..fed26918df543 100644
  	s32  delivered_ce;	/* number of packets delivered w/ CE marks*/
  	long interval_us;	/* time for tp->delivered to incr "delivered" */
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 737df4a71ecae..cd50ce0078b9e 100644
+index 737df4a71eca..cd50ce0078b9 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -1824,6 +1824,7 @@ static void tcp_rate_skb_delivered(struct sock *sk, struct sk_buff *skb,
@@ -62,7 +62,7 @@ index 737df4a71ecae..cd50ce0078b9e 100644
  
  		/* Record send time of most recently ACKed packet: */
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index e0c392e29de5a..6430bba0c43a2 100644
+index e0c392e29de5..6430bba0c43a 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
 @@ -1467,6 +1467,24 @@ static void tcp_update_skb_after_send(struct sock *sk, struct sk_buff *skb,

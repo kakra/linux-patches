@@ -11,7 +11,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 87ef6d5cbfeba..f7aacca44c0c5 100644
+index 87ef6d5cbfeb..f7aacca44c0c 100644
 --- a/net/ipv4/tcp.c
 +++ b/net/ipv4/tcp.c
 @@ -5370,7 +5370,7 @@ void __init tcp_init(void)

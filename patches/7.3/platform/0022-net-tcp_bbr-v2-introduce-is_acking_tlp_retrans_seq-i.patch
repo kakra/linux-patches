@@ -21,7 +21,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  2 files changed, 10 insertions(+), 3 deletions(-)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 663ea3cc2fc84..2ccb3be2db8f2 100644
+index 663ea3cc2fc8..2ccb3be2db8f 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
 @@ -1332,6 +1332,7 @@ struct rate_sample {
@@ -33,7 +33,7 @@ index 663ea3cc2fc84..2ccb3be2db8f2 100644
  	bool is_ece;		/* did this ACK have ECN marked? */
  };
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 15ec55b330351..9a005b52c1cb8 100644
+index 15ec55b33035..9a005b52c1cb 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -4158,7 +4158,8 @@ static int tcp_replace_ts_recent(struct tcp_sock *tp, u32 seq)

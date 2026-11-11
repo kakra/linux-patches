@@ -14,7 +14,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/arch/x86/Makefile b/arch/x86/Makefile
-index 8af6b80cffdd8..2335a841586e8 100644
+index 8af6b80cffdd..2335a841586e 100644
 --- a/arch/x86/Makefile
 +++ b/arch/x86/Makefile
 @@ -73,7 +73,7 @@ export BITS

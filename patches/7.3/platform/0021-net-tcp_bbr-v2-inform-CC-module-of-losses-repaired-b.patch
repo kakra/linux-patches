@@ -25,7 +25,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  2 files changed, 2 insertions(+)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index f390e54987b0a..663ea3cc2fc84 100644
+index f390e54987b0..663ea3cc2fc8 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
 @@ -1264,6 +1264,7 @@ enum tcp_ca_event {
@@ -37,7 +37,7 @@ index f390e54987b0a..663ea3cc2fc84 100644
  
  /* Information about inbound ACK, passed to cong_ops->in_ack_event() */
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 7dc58c30149c0..15ec55b330351 100644
+index 7dc58c30149c..15ec55b33035 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -4175,6 +4175,7 @@ static void tcp_process_tlp_ack(struct sock *sk, u32 ack, int flag)

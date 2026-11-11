@@ -18,7 +18,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  2 files changed, 2 insertions(+)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 825a4e3e2db04..6c30bcdd7d72f 100644
+index 825a4e3e2db0..6c30bcdd7d72 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
 @@ -1332,6 +1332,7 @@ struct rate_sample {
@@ -30,7 +30,7 @@ index 825a4e3e2db04..6c30bcdd7d72f 100644
  
  struct tcp_congestion_ops {
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 79fcda9634e88..83d7afb31232a 100644
+index 79fcda9634e8..83d7afb31232 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -4440,6 +4440,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)

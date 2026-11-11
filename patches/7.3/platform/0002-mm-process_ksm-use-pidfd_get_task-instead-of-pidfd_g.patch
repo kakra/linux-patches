@@ -13,7 +13,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  1 file changed, 3 insertions(+), 12 deletions(-)
 
 diff --git a/kernel/sys.c b/kernel/sys.c
-index 22bc4a9976a01..c186c2c188889 100644
+index 22bc4a9976a0..c186c2c18888 100644
 --- a/kernel/sys.c
 +++ b/kernel/sys.c
 @@ -2925,23 +2925,16 @@ enum pkc_action {

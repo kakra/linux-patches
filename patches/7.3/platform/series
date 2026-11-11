@@ -22,3 +22,8 @@
 0022-net-tcp_bbr-v2-introduce-is_acking_tlp_retrans_seq-i.patch
 0023-tcp_bbr3-add-BBRv3-congestion-control.patch
 0024-tcp_bbr3-let-DEFAULT_BBR3-select-bbr3-as-the-default.patch
+0025-mm-mglru-don-t-use-stack-pointers-when-walking-PUD-a.patch
+0026-mm-vmscan-fix-missing-NR_ISOLATED-counter-update-in-.patch
+0027-mm-zswap-use-separate-compression-and-decompression-.patch
+0028-crypto-acomp-enforce-MAX_SYNC_COMP_REQSIZE.patch
+0029-mm-zswap-use-stack-requests-for-synchronous-decompre.patch

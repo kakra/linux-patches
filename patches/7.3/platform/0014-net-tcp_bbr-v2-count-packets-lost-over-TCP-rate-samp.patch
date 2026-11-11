@@ -20,7 +20,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  3 files changed, 7 insertions(+), 1 deletion(-)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index fed26918df543..825a4e3e2db04 100644
+index fed26918df54..825a4e3e2db0 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
 @@ -1153,6 +1153,7 @@ struct tcp_skb_cb {
@@ -47,7 +47,7 @@ index fed26918df543..825a4e3e2db04 100644
  	u32 snd_interval_us;	/* snd interval for delivered packets */
  	u32 rcv_interval_us;	/* rcv interval for delivered packets */
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index cd50ce0078b9e..79fcda9634e88 100644
+index cd50ce0078b9..79fcda9634e8 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -1751,6 +1751,7 @@ static void tcp_rate_gen(struct sock *sk, u32 delivered, u32 lost,
@@ -67,7 +67,7 @@ index cd50ce0078b9e..79fcda9634e88 100644
  		rs->prior_delivered  = scb->tx.delivered;
  		rs->prior_mstamp     = scb->tx.delivered_mstamp;
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 6430bba0c43a2..186c874bdaffa 100644
+index 6430bba0c43a..186c874bdaff 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
 @@ -1517,6 +1517,7 @@ static void tcp_rate_skb_sent(struct sock *sk, struct sk_buff *skb)

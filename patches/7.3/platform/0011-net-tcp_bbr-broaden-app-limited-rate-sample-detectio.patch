@@ -32,7 +32,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  2 files changed, 3 insertions(+)
 
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 99baf14afdfd8..378a825c35b33 100644
+index 99baf14afdfd..378a825c35b3 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -4339,6 +4339,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
@@ -44,7 +44,7 @@ index 99baf14afdfd8..378a825c35b33 100644
  	/* ts_recent update must be made after we are sure that the packet
  	 * is in window.
 diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index e56eae4bc341e..c7dd71c30f179 100644
+index e56eae4bc341..c7dd71c30f17 100644
 --- a/net/ipv4/tcp_timer.c
 +++ b/net/ipv4/tcp_timer.c
 @@ -708,6 +708,8 @@ void tcp_write_timer_handler(struct sock *sk)
