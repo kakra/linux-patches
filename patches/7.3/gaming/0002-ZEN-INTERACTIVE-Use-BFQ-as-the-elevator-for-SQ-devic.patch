@@ -11,7 +11,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  2 files changed, 8 insertions(+)
 
 diff --git a/block/elevator.c b/block/elevator.c
-index 2161b6eea680c..bd010c06aa435 100644
+index 2161b6eea680..bd010c06aa43 100644
 --- a/block/elevator.c
 +++ b/block/elevator.c
 @@ -729,7 +729,11 @@ void elv_update_nr_hw_queues(struct request_queue *q,
@@ -27,7 +27,7 @@ index 2161b6eea680c..bd010c06aa435 100644
  	};
  	int err;
 diff --git a/init/Kconfig b/init/Kconfig
-index 26a34e11949d0..952ab5898fafe 100644
+index 26a34e11949d..952ab5898faf 100644
 --- a/init/Kconfig
 +++ b/init/Kconfig
 @@ -229,6 +229,10 @@ config ZEN_INTERACTIVE

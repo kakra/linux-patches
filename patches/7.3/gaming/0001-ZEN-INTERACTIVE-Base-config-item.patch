@@ -10,7 +10,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  1 file changed, 6 insertions(+)
 
 diff --git a/init/Kconfig b/init/Kconfig
-index ad592fdf29af4..26a34e11949d0 100644
+index ad592fdf29af..26a34e11949d 100644
 --- a/init/Kconfig
 +++ b/init/Kconfig
 @@ -223,6 +223,12 @@ config THREAD_INFO_IN_TASK

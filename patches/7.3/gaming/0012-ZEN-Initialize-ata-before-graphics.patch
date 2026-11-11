@@ -14,7 +14,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  1 file changed, 7 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/Makefile b/drivers/Makefile
-index 0841ea851847e..71f480cdeeee4 100644
+index 0841ea851847..71f480cdeeee 100644
 --- a/drivers/Makefile
 +++ b/drivers/Makefile
 @@ -64,14 +64,8 @@ obj-y				+= char/

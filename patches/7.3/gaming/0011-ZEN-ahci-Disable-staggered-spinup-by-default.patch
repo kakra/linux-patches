@@ -22,7 +22,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/ata/libahci.c b/drivers/ata/libahci.c
-index 08ab56e955662..2f4baadb296c5 100644
+index f3fd56f15334..9f16888bbc84 100644
 --- a/drivers/ata/libahci.c
 +++ b/drivers/ata/libahci.c
 @@ -34,7 +34,7 @@

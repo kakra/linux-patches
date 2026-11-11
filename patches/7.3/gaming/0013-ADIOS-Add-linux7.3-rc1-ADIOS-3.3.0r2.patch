@@ -28,7 +28,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  create mode 100644 block/adios.c
 
 diff --git a/block/Kconfig.iosched b/block/Kconfig.iosched
-index 27f11320b8d12..e98585dd83e0f 100644
+index 27f11320b8d1..e98585dd83e0 100644
 --- a/block/Kconfig.iosched
 +++ b/block/Kconfig.iosched
 @@ -16,6 +16,20 @@ config MQ_IOSCHED_KYBER
@@ -53,7 +53,7 @@ index 27f11320b8d12..e98585dd83e0f 100644
  	tristate "BFQ I/O scheduler"
  	select BLK_ICQ
 diff --git a/block/Makefile b/block/Makefile
-index e7bd320e3d697..5523e5f62f92b 100644
+index e7bd320e3d69..5523e5f62f92 100644
 --- a/block/Makefile
 +++ b/block/Makefile
 @@ -25,6 +25,7 @@ obj-$(CONFIG_BLK_CGROUP_IOLATENCY)	+= blk-iolatency.o
@@ -77,7 +77,7 @@ index e7bd320e3d697..5523e5f62f92b 100644
 +
 diff --git a/block/adios.c b/block/adios.c
 new file mode 100644
-index 0000000000000..e55d966a6d176
+index 000000000000..e55d966a6d17
 --- /dev/null
 +++ b/block/adios.c
 @@ -0,0 +1,1986 @@
@@ -2069,7 +2069,7 @@ index 0000000000000..e55d966a6d176
 +MODULE_DESCRIPTION(ADIOS_PROGNAME);
 \ No newline at end of file
 diff --git a/block/elevator.c b/block/elevator.c
-index 788eafc3880ab..9ef56170bde73 100644
+index 788eafc3880a..9ef56170bde7 100644
 --- a/block/elevator.c
 +++ b/block/elevator.c
 @@ -729,7 +729,9 @@ void elv_update_nr_hw_queues(struct request_queue *q,
@@ -2101,7 +2101,7 @@ index 788eafc3880ab..9ef56170bde73 100644
  	ctx.type = elevator_find_get(ctx.name);
  	if (!ctx.type)
 diff --git a/scripts/setlocalversion b/scripts/setlocalversion
-index 28169d7e143b6..5cb02894acaf8 100755
+index 28169d7e143b..5cb02894acaf 100755
 --- a/scripts/setlocalversion
 +++ b/scripts/setlocalversion
 @@ -117,7 +117,7 @@ scm_version()

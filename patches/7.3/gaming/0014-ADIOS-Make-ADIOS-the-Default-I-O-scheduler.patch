@@ -9,7 +9,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/block/Kconfig.iosched b/block/Kconfig.iosched
-index e98585dd83e0f..dcbcf7c8a3b22 100644
+index e98585dd83e0..dcbcf7c8a3b2 100644
 --- a/block/Kconfig.iosched
 +++ b/block/Kconfig.iosched
 @@ -18,7 +18,7 @@ config MQ_IOSCHED_KYBER

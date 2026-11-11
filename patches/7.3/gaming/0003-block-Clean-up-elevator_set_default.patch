@@ -13,7 +13,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  1 file changed, 8 insertions(+), 7 deletions(-)
 
 diff --git a/block/elevator.c b/block/elevator.c
-index bd010c06aa435..ea65e76b6d0be 100644
+index bd010c06aa43..ea65e76b6d0b 100644
 --- a/block/elevator.c
 +++ b/block/elevator.c
 @@ -749,17 +749,18 @@ void elevator_set_default(struct request_queue *q)

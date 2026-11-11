@@ -1,5 +1,5 @@
 branch=rebase-7.3/gaming-patches
-base=v7.3
-head=f7c82f4bdc18b20a206bfe978c9f67b690f97ffe
-date=2026-11-07
+base=v7.3.4
+head=e531c450f2032e6c9e4c196b7f55ef987f22359d
+date=2026-11-12
 pr=49

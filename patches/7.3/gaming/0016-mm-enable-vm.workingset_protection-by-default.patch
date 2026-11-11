@@ -9,7 +9,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/mm/vmscan.c b/mm/vmscan.c
-index 4ac7811832afc..20a5fb44b5960 100644
+index 6a15c7b13659..62778e50faac 100644
 --- a/mm/vmscan.c
 +++ b/mm/vmscan.c
 @@ -204,7 +204,7 @@ struct scan_control {

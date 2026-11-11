@@ -10,7 +10,7 @@ was tracked.
 |---|---|---|---|---|---|
 | [`bcache`](patches/7.3/bcache/) | `rebase-7.3/bcache-updates` | `v7.3` | 4 | 2026-11-06 | [#46][pr-46], 2026-11-07 to open |
 | [`btrfs`](patches/7.3/btrfs/) | `rebase-7.3/btrfs-patches` | `v7.3` | 18 | 2026-11-07 | [#47][pr-47], 2026-11-07 to open |
-| [`gaming`](patches/7.3/gaming/) | `rebase-7.3/gaming-patches` | `v7.3` | 16 | 2026-11-07 | [#49][pr-49], 2026-11-07 to open |
+| [`gaming`](patches/7.3/gaming/) | `rebase-7.3/gaming-patches` | `v7.3.4` | 16 | 2026-11-12 | [#49][pr-49], 2026-11-07 to open |
 | [`platform`](patches/7.3/platform/) | `rebase-7.3/platform` | `v7.3` | 24 | 2026-11-07 | [#48][pr-48], 2026-11-07 to open |
 
 Base: `base-7.3` at `v7.3.4`, pinned as `base/`.
@@ -31,6 +31,8 @@ repository (`tools/ci-build.sh`, GitHub workflow).
   `FUTEX_WAIT_MULTIPLE` entry point, threaded IRQs by default, Intel NVMe
   remap, GCC stack conservation; prefer full-idle SMT cores waits for a
   port.
+  Rebased onto 7.3.4, where le9uo conflicted with the MGLRU memcg
+  protection fix in `shrink_one()`.
 - `btrfs`, `bcache`: the 6.18 series rebased onto 7.3; the btrfs build
   workflow commit moved into this repository.
 - `cltweaks`, `memory`, `pf-ksm` are given up as series; their patches

@@ -44,7 +44,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  3 files changed, 21 insertions(+), 1 deletion(-)
 
 diff --git a/init/Kconfig b/init/Kconfig
-index b952dfdbd7b9c..1345ffff0060b 100644
+index b952dfdbd7b9..1345ffff0060 100644
 --- a/init/Kconfig
 +++ b/init/Kconfig
 @@ -238,6 +238,13 @@ config ZEN_INTERACTIVE
@@ -62,7 +62,7 @@ index b952dfdbd7b9c..1345ffff0060b 100644
  	bool
  	help
 diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
-index 0f2364479f9d2..004eb58e46ea0 100644
+index b35e23f93bcd..3da3bc8c2f4c 100644
 --- a/kernel/sched/fair.c
 +++ b/kernel/sched/fair.c
 @@ -82,10 +82,19 @@ unsigned int sysctl_sched_tunable_scaling = SCHED_TUNABLESCALING_LOG;
@@ -99,7 +99,7 @@ index 0f2364479f9d2..004eb58e46ea0 100644
  #ifdef CONFIG_NUMA_BALANCING
  /* Restrict the NUMA promotion throughput (MB/s) for each target node. */
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index 4c25fbe84fb54..f44bb8779e79b 100644
+index 4c25fbe84fb5..f44bb8779e79 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
 @@ -3138,7 +3138,7 @@ static inline void attach_one_task(struct rq *rq, struct task_struct *p)

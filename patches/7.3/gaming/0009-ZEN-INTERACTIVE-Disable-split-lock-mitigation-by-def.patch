@@ -23,7 +23,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  2 files changed, 8 insertions(+)
 
 diff --git a/arch/x86/kernel/cpu/bus_lock.c b/arch/x86/kernel/cpu/bus_lock.c
-index 177f964d4d36a..a5c13383b975a 100644
+index 177f964d4d36..a5c13383b975 100644
 --- a/arch/x86/kernel/cpu/bus_lock.c
 +++ b/arch/x86/kernel/cpu/bus_lock.c
 @@ -47,7 +47,11 @@ static const struct {
@@ -39,7 +39,7 @@ index 177f964d4d36a..a5c13383b975a 100644
  
  #ifdef CONFIG_SYSCTL
 diff --git a/init/Kconfig b/init/Kconfig
-index e57516c042432..676f5eaf26510 100644
+index e57516c04243..676f5eaf2651 100644
 --- a/init/Kconfig
 +++ b/init/Kconfig
 @@ -252,6 +252,10 @@ config ZEN_INTERACTIVE

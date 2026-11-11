@@ -57,7 +57,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  2 files changed, 14 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/cpufreq/cpufreq_ondemand.c b/drivers/cpufreq/cpufreq_ondemand.c
-index 9942dbb38dae4..7f8f399f31eb9 100644
+index 9942dbb38dae..7f8f399f31eb 100644
 --- a/drivers/cpufreq/cpufreq_ondemand.c
 +++ b/drivers/cpufreq/cpufreq_ondemand.c
 @@ -18,10 +18,16 @@
@@ -80,7 +80,7 @@ index 9942dbb38dae4..7f8f399f31eb9 100644
  #define MAX_FREQUENCY_UP_THRESHOLD		(100)
  
 diff --git a/init/Kconfig b/init/Kconfig
-index 1345ffff0060b..74e99eff7be2d 100644
+index 1345ffff0060..74e99eff7be2 100644
 --- a/init/Kconfig
 +++ b/init/Kconfig
 @@ -245,6 +245,12 @@ config ZEN_INTERACTIVE
