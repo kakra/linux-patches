@@ -13,7 +13,7 @@ was tracked.
 | [`gaming`](patches/7.3/gaming/) | `rebase-7.3/gaming-patches` | `v7.3` | 16 | 2026-11-07 | [#49][pr-49], 2026-11-07 to open |
 | [`platform`](patches/7.3/platform/) | `rebase-7.3/platform` | `v7.3` | 24 | 2026-11-07 | [#48][pr-48], 2026-11-07 to open |
 
-Base: `base-7.3` at `v7.3`, pinned as `base/`.
+Base: `base-7.3` at `v7.3.4`, pinned as `base/`.
 
 7.3 is expected to be the next long term kernel. The series are cut anew
 so that each applies alone and together with any other
