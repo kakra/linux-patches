@@ -27,3 +27,7 @@
 0027-mm-zswap-use-separate-compression-and-decompression-.patch
 0028-crypto-acomp-enforce-MAX_SYNC_COMP_REQSIZE.patch
 0029-mm-zswap-use-stack-requests-for-synchronous-decompre.patch
+0030-bpf-arena-Allocate-the-fault-in-page-outside-the-loc.patch
+0031-bpf-Use-an-llist-for-page-allocations.patch
+0032-bpf-Add-sleepable-argument-to-bpf_alloc_pages.patch
+0033-bpf-Add-sleepable-arena-page-allocation-path.patch
