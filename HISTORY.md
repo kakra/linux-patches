@@ -11,7 +11,7 @@ was tracked.
 | [`bcache`](patches/7.3/bcache/) | `rebase-7.3/bcache-updates` | `v7.3` | 4 | 2026-11-06 | [#46][pr-46], 2026-11-07 to open |
 | [`btrfs`](patches/7.3/btrfs/) | `rebase-7.3/btrfs-patches` | `v7.3` | 18 | 2026-11-07 | [#47][pr-47], 2026-11-07 to open |
 | [`gaming`](patches/7.3/gaming/) | `rebase-7.3/gaming-patches` | `v7.3.4` | 16 | 2026-11-12 | [#49][pr-49], 2026-11-07 to open |
-| [`platform`](patches/7.3/platform/) | `rebase-7.3/platform` | `v7.3` | 29 | 2026-11-12 | [#48][pr-48], 2026-11-07 to open |
+| [`platform`](patches/7.3/platform/) | `rebase-7.3/platform` | `v7.3` | 33 | 2026-11-15 | [#48][pr-48], 2026-11-07 to open |
 
 Base: `base-7.3` at `v7.3.4`, pinned as `base/`.
 
@@ -28,6 +28,12 @@ repository (`tools/ci-build.sh`, GitHub workflow).
   Added two MGLRU fixes from 7.4 that are not in 7.3 stable yet, and
   the zswap contention fixes (v4, not upstream yet) from
   `zen-kernel/7.3/zswap-contention-v4`.
+  Backported the sleepable BPF arena page allocation from 7.4 (four
+  commits up to `5316ede1f5d0`, not in 7.3 stable yet): sleepable
+  callers allocate arena pages with reclaim before taking the arena
+  lock. Without it, sched_ext schedulers such as scx_lavd were ejected
+  whenever a fork needed an arena page while free memory sat at the
+  min watermark.
 - `gaming`: cut anew. ZEN INTERACTIVE from `v7.2.15-zen1` with the new
   split lock default, ADIOS 3.3.0r2 and le9uo 1.15 fetched anew from
   upstream (le9uo came from `memory`). Dropped: BORE, the
