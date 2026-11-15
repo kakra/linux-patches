@@ -43,7 +43,9 @@ find "$OUT" -maxdepth 1 -name '*.patch' -delete
 
 # --zero-commit, --no-signature and --no-numbered keep re-exports free of
 # noise: a patch file only changes when the patch itself changes.
-"${GIT[@]}" format-patch -q --zero-commit --no-signature --no-numbered \
+# --abbrev=12: the default length grows with the object count of the clone
+# and would rewrite every index line of an unchanged patch.
+"${GIT[@]}" format-patch -q --zero-commit --no-signature --no-numbered --abbrev=12 \
 	-o "$OUT" "$base..$head"
 (cd "$OUT" && ls -1 -- *.patch) >"$OUT/series"
 count=$(wc -l <"$OUT/series")

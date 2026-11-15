@@ -26,7 +26,8 @@ benchmark helpers in `tools/bench/`.
   `add-series.sh` and `drop-series.sh` only edit `.gitmodules` and stage
   the pin; temporary files go to `build/`.
 - Output written into the repository is generated and reproducible:
-  `export-series.sh` uses `--zero-commit --no-signature --no-numbered`.
+  `export-series.sh` uses `--zero-commit --no-signature --no-numbered
+  --abbrev=12`.
 - `state.sh` and the benchmark scripts print no UUIDs, machine ids, host
   or user names: replace them with placeholders.
 - Benchmark scripts that need root say so and are run by the maintainer.
