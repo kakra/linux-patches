@@ -32,7 +32,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  2 files changed, 3 insertions(+)
 
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 99baf14afdfd..378a825c35b3 100644
+index 3583867487d7..c3accb2db348 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -4339,6 +4339,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)

@@ -30,7 +30,7 @@ index 825a4e3e2db0..6c30bcdd7d72 100644
  
  struct tcp_congestion_ops {
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 79fcda9634e8..83d7afb31232 100644
+index c5c242d2dd21..6c519af16cdd 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -4440,6 +4440,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)

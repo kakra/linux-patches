@@ -41,7 +41,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  1 file changed, 53 insertions(+), 23 deletions(-)
 
 diff --git a/mm/zswap.c b/mm/zswap.c
-index 0c1e542400a5..4a6cc99174c5 100644
+index 3719c7f875b4..9354ca1a7e2f 100644
 --- a/mm/zswap.c
 +++ b/mm/zswap.c
 @@ -152,7 +152,7 @@ struct zswap_comp_ctx {
@@ -53,7 +53,7 @@ index 0c1e542400a5..4a6cc99174c5 100644
  };
  
  /*
-@@ -787,6 +787,18 @@ static void zswap_entry_free(struct zswap_entry *entry)
+@@ -789,6 +789,18 @@ static void zswap_entry_free(struct zswap_entry *entry)
  /*********************************
  * compressed storage functions
  **********************************/
@@ -72,7 +72,7 @@ index 0c1e542400a5..4a6cc99174c5 100644
  static int zswap_acomp_req_init(struct zswap_acomp_req *areq,
  				struct crypto_acomp *acomp)
  {
-@@ -796,14 +808,7 @@ static int zswap_acomp_req_init(struct zswap_acomp_req *areq,
+@@ -798,14 +810,7 @@ static int zswap_acomp_req_init(struct zswap_acomp_req *areq,
  		return -ENOMEM;
  
  	crypto_init_wait(&areq->wait);
@@ -88,7 +88,7 @@ index 0c1e542400a5..4a6cc99174c5 100644
  
  	mutex_init(&areq->mutex);
  	return 0;
-@@ -844,9 +849,12 @@ static int zswap_cpu_comp_prepare(unsigned int cpu, struct hlist_node *node)
+@@ -846,9 +851,12 @@ static int zswap_cpu_comp_prepare(unsigned int cpu, struct hlist_node *node)
  	if (ret)
  		goto req_fail;
  
@@ -104,7 +104,7 @@ index 0c1e542400a5..4a6cc99174c5 100644
  
  	return 0;
  
-@@ -944,16 +952,14 @@ static bool zswap_compress(struct page *page, struct zswap_entry *entry,
+@@ -946,16 +954,14 @@ static bool zswap_compress(struct page *page, struct zswap_entry *entry,
  	return comp_ret == 0 && alloc_ret == 0;
  }
  
@@ -124,7 +124,7 @@ index 0c1e542400a5..4a6cc99174c5 100644
  	zs_obj_read_sg_begin(pool->zs_pool, entry->handle, input, entry->length);
  
  	/* zswap entries of length PAGE_SIZE are not compressed. */
-@@ -970,15 +976,13 @@ static bool zswap_decompress(struct zswap_entry *entry, struct folio *folio)
+@@ -972,15 +978,13 @@ static bool zswap_decompress(struct zswap_entry *entry, struct folio *folio)
  	} else {
  		sg_init_table(&output, 1);
  		sg_set_folio(&output, folio, PAGE_SIZE, 0);
@@ -144,7 +144,7 @@ index 0c1e542400a5..4a6cc99174c5 100644
  
  	if (!ret && dlen == PAGE_SIZE)
  		return true;
-@@ -992,6 +996,32 @@ static bool zswap_decompress(struct zswap_entry *entry, struct folio *folio)
+@@ -994,6 +998,32 @@ static bool zswap_decompress(struct zswap_entry *entry, struct folio *folio)
  	return false;
  }
  

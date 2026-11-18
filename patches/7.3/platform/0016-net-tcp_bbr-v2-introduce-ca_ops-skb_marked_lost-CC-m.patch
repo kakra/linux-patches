@@ -44,7 +44,7 @@ index 6c30bcdd7d72..7ca49c6d25eb 100644
  	u32  (*undo_cwnd)(struct sock *sk);
  	/* returns the multiplier used in tcp_sndbuf_expand (optional) */
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 83d7afb31232..7791f52abb6f 100644
+index 6c519af16cdd..0e2d5c8d86d3 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -1323,7 +1323,12 @@ static void tcp_verify_retransmit_hint(struct tcp_sock *tp, struct sk_buff *skb)

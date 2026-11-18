@@ -36,10 +36,10 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  1 file changed, 5 insertions(+)
 
 diff --git a/mm/vmscan.c b/mm/vmscan.c
-index d5005afed7db..e00f086357f0 100644
+index 88fd31d13585..886eef93d1db 100644
 --- a/mm/vmscan.c
 +++ b/mm/vmscan.c
-@@ -4897,6 +4897,9 @@ static int evict_folios(unsigned long nr_to_scan, struct lruvec *lruvec,
+@@ -4901,6 +4901,9 @@ static int evict_folios(unsigned long nr_to_scan, struct lruvec *lruvec,
  	scanned = isolate_folios(nr_to_scan, lruvec, sc, swappiness,
  				 &list, &isolated, &type, &type_scanned);
  	nr_isolated = isolated;
@@ -49,7 +49,7 @@ index d5005afed7db..e00f086357f0 100644
  
  	/* Scanning may have emptied the oldest gen, flush it */
  	if (scanned)
-@@ -4959,6 +4962,8 @@ static int evict_folios(unsigned long nr_to_scan, struct lruvec *lruvec,
+@@ -4963,6 +4966,8 @@ static int evict_folios(unsigned long nr_to_scan, struct lruvec *lruvec,
  		goto retry;
  	}
  

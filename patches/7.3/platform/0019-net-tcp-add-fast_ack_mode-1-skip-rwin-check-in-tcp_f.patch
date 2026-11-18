@@ -48,7 +48,7 @@ index f7aacca44c0c..824c278fba1e 100644
  
  	/* Clean up fastopen related fields */
 diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-index 8e83ef81fc18..50e6c89ad2cb 100644
+index e3f462f161dd..6fce9ac64b84 100644
 --- a/net/ipv4/tcp_cong.c
 +++ b/net/ipv4/tcp_cong.c
 @@ -238,6 +238,7 @@ void tcp_init_congestion_control(struct sock *sk)
@@ -60,7 +60,7 @@ index 8e83ef81fc18..50e6c89ad2cb 100644
  		icsk->icsk_ca_ops->init(sk);
  	if (tcp_ca_needs_ecn(sk))
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index f651b7b40c54..7dc58c30149c 100644
+index 100836f8eafc..733b43d521d4 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -6148,13 +6148,14 @@ static void __tcp_ack_snd_check(struct sock *sk, int ofo_possible)

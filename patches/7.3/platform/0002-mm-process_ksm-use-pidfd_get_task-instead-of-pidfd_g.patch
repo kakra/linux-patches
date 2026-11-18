@@ -13,10 +13,10 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  1 file changed, 3 insertions(+), 12 deletions(-)
 
 diff --git a/kernel/sys.c b/kernel/sys.c
-index 22bc4a9976a0..c186c2c18888 100644
+index 79b933dd542b..aac52c3d508d 100644
 --- a/kernel/sys.c
 +++ b/kernel/sys.c
-@@ -2925,23 +2925,16 @@ enum pkc_action {
+@@ -2928,23 +2928,16 @@ enum pkc_action {
  static long do_process_ksm_control(int pidfd, enum pkc_action action)
  {
  	long ret;
@@ -43,7 +43,7 @@ index 22bc4a9976a0..c186c2c18888 100644
  	/* Require PTRACE_MODE_READ to avoid leaking ASLR metadata. */
  	mm = mm_access(task, PTRACE_MODE_READ_FSCREDS);
  	if (IS_ERR_OR_NULL(mm)) {
-@@ -2978,8 +2971,6 @@ static long do_process_ksm_control(int pidfd, enum pkc_action action)
+@@ -2981,8 +2974,6 @@ static long do_process_ksm_control(int pidfd, enum pkc_action action)
  	mmput(mm);
  release_task:
  	put_task_struct(task);

@@ -266,10 +266,10 @@ index 5b7e77a7c736..00ca6e0a3ff4 100644
  /*
   * 32 bit systems traditionally used different
 diff --git a/kernel/sys.c b/kernel/sys.c
-index 35b538ba843c..22bc4a9976a0 100644
+index 755bfa5ccd92..79b933dd542b 100644
 --- a/kernel/sys.c
 +++ b/kernel/sys.c
-@@ -2915,6 +2915,153 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
+@@ -2918,6 +2918,153 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
  	return error;
  }
  

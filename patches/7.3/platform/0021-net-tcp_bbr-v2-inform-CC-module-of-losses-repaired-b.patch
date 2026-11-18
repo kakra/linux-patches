@@ -37,7 +37,7 @@ index f390e54987b0..663ea3cc2fc8 100644
  
  /* Information about inbound ACK, passed to cong_ops->in_ack_event() */
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 7dc58c30149c..15ec55b33035 100644
+index 733b43d521d4..4ba9957d1cc8 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -4175,6 +4175,7 @@ static void tcp_process_tlp_ack(struct sock *sk, u32 ack, int flag)

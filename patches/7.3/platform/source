@@ -1,5 +1,5 @@
 branch=rebase-7.3/platform
-base=v7.3
-head=168c2bc51fed32a3d0f0f4802204b5566b5e102b
-date=2026-11-15
+base=v7.3.5
+head=a937f9876cf8df9829c105ea9168ef8c9910cfba
+date=2026-11-19
 pr=48

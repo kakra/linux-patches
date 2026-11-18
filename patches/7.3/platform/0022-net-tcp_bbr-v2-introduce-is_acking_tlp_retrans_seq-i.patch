@@ -33,7 +33,7 @@ index 663ea3cc2fc8..2ccb3be2db8f 100644
  	bool is_ece;		/* did this ACK have ECN marked? */
  };
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 15ec55b33035..9a005b52c1cb 100644
+index 4ba9957d1cc8..4c7d505882c9 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -4158,7 +4158,8 @@ static int tcp_replace_ts_recent(struct tcp_sock *tp, u32 seq)

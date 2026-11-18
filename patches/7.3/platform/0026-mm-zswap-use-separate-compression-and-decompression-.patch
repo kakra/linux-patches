@@ -45,7 +45,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  1 file changed, 70 insertions(+), 47 deletions(-)
 
 diff --git a/mm/zswap.c b/mm/zswap.c
-index 37f34e406c8e..0c1e542400a5 100644
+index e6e6377a62a0..3719c7f875b4 100644
 --- a/mm/zswap.c
 +++ b/mm/zswap.c
 @@ -136,14 +136,25 @@ bool zswap_never_enabled(void)
@@ -107,7 +107,7 @@ index 37f34e406c8e..0c1e542400a5 100644
  }
  
  static struct zswap_pool *zswap_pool_create(char *compressor)
-@@ -780,6 +787,28 @@ static void zswap_entry_free(struct zswap_entry *entry)
+@@ -782,6 +789,28 @@ static void zswap_entry_free(struct zswap_entry *entry)
  /*********************************
  * compressed storage functions
  **********************************/
@@ -136,7 +136,7 @@ index 37f34e406c8e..0c1e542400a5 100644
  static int zswap_cpu_comp_prepare(unsigned int cpu, struct hlist_node *node)
  {
  	struct zswap_pool *pool = hlist_entry(node, struct zswap_pool, node);
-@@ -795,8 +824,8 @@ static int zswap_cpu_comp_prepare(unsigned int cpu, struct hlist_node *node)
+@@ -797,8 +826,8 @@ static int zswap_cpu_comp_prepare(unsigned int cpu, struct hlist_node *node)
  		return 0;
  	}
  
@@ -147,7 +147,7 @@ index 37f34e406c8e..0c1e542400a5 100644
  		return ret;
  
  	/*
-@@ -811,27 +840,18 @@ static int zswap_cpu_comp_prepare(unsigned int cpu, struct hlist_node *node)
+@@ -813,27 +842,18 @@ static int zswap_cpu_comp_prepare(unsigned int cpu, struct hlist_node *node)
  		goto fail;
  	}
  
@@ -183,7 +183,7 @@ index 37f34e406c8e..0c1e542400a5 100644
  fail:
  	acomp_ctx_free(acomp_ctx);
  	return ret;
-@@ -840,7 +860,7 @@ static int zswap_cpu_comp_prepare(unsigned int cpu, struct hlist_node *node)
+@@ -842,7 +862,7 @@ static int zswap_cpu_comp_prepare(unsigned int cpu, struct hlist_node *node)
  static bool zswap_compress(struct page *page, struct zswap_entry *entry,
  			   struct zswap_pool *pool)
  {
@@ -192,7 +192,7 @@ index 37f34e406c8e..0c1e542400a5 100644
  	struct scatterlist input, output;
  	int comp_ret = 0, alloc_ret = 0;
  	unsigned int dlen = PAGE_SIZE;
-@@ -849,15 +869,16 @@ static bool zswap_compress(struct page *page, struct zswap_entry *entry,
+@@ -851,15 +871,16 @@ static bool zswap_compress(struct page *page, struct zswap_entry *entry,
  	u8 *dst;
  	bool mapped = false;
  
@@ -213,7 +213,7 @@ index 37f34e406c8e..0c1e542400a5 100644
  
  	/*
  	 * it maybe looks a little bit silly that we send an asynchronous request,
-@@ -869,10 +890,12 @@ static bool zswap_compress(struct page *page, struct zswap_entry *entry,
+@@ -871,10 +892,12 @@ static bool zswap_compress(struct page *page, struct zswap_entry *entry,
  	 * existing method to send the second page before the first page is done
  	 * in one thread doing zswap.
  	 * but in different threads running on different cpu, we have different
@@ -229,7 +229,7 @@ index 37f34e406c8e..0c1e542400a5 100644
  
  	/*
  	 * If a page cannot be compressed into a size smaller than PAGE_SIZE,
-@@ -917,7 +940,7 @@ static bool zswap_compress(struct page *page, struct zswap_entry *entry,
+@@ -919,7 +942,7 @@ static bool zswap_compress(struct page *page, struct zswap_entry *entry,
  	else if (alloc_ret)
  		zswap_reject_alloc_fail++;
  
@@ -238,7 +238,7 @@ index 37f34e406c8e..0c1e542400a5 100644
  	return comp_ret == 0 && alloc_ret == 0;
  }
  
-@@ -930,7 +953,7 @@ static bool zswap_decompress(struct zswap_entry *entry, struct folio *folio)
+@@ -932,7 +955,7 @@ static bool zswap_decompress(struct zswap_entry *entry, struct folio *folio)
  	int ret = 0, dlen;
  
  	acomp_ctx = raw_cpu_ptr(pool->acomp_ctx);
@@ -247,7 +247,7 @@ index 37f34e406c8e..0c1e542400a5 100644
  	zs_obj_read_sg_begin(pool->zs_pool, entry->handle, input, entry->length);
  
  	/* zswap entries of length PAGE_SIZE are not compressed. */
-@@ -947,15 +970,15 @@ static bool zswap_decompress(struct zswap_entry *entry, struct folio *folio)
+@@ -949,15 +972,15 @@ static bool zswap_decompress(struct zswap_entry *entry, struct folio *folio)
  	} else {
  		sg_init_table(&output, 1);
  		sg_set_folio(&output, folio, PAGE_SIZE, 0);
