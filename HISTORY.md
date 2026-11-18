@@ -10,8 +10,8 @@ was tracked.
 |---|---|---|---|---|---|
 | [`bcache`](patches/7.3/bcache/) | `rebase-7.3/bcache-updates` | `v7.3` | 4 | 2026-11-06 | [#46][pr-46], 2026-11-07 to open |
 | [`btrfs`](patches/7.3/btrfs/) | `rebase-7.3/btrfs-patches` | `v7.3` | 18 | 2026-11-07 | [#47][pr-47], 2026-11-07 to open |
-| [`gaming`](patches/7.3/gaming/) | `rebase-7.3/gaming-patches` | `v7.3.4` | 16 | 2026-11-12 | [#49][pr-49], 2026-11-07 to open |
-| [`platform`](patches/7.3/platform/) | `rebase-7.3/platform` | `v7.3` | 33 | 2026-11-15 | [#48][pr-48], 2026-11-07 to open |
+| [`gaming`](patches/7.3/gaming/) | `rebase-7.3/gaming-patches` | `v7.3.5` | 16 | 2026-11-19 | [#49][pr-49], 2026-11-07 to open |
+| [`platform`](patches/7.3/platform/) | `rebase-7.3/platform` | `v7.3.5` | 32 | 2026-11-19 | [#48][pr-48], 2026-11-07 to open |
 
 Base: `base-7.3` at `v7.3.5`, pinned as `base/`.
 
@@ -25,9 +25,12 @@ repository (`tools/ci-build.sh`, GitHub workflow).
   desktops: the pf-ksm syscalls (renumbered to 473 to 475), the network
   and locking patches of Clear Linux, two ZEN patches (AVX2 off, evdev),
   and BBRv3 from pf-kernel with a fix for its default option.
-  Added two MGLRU fixes from 7.4 that are not in 7.3 stable yet, and
-  the zswap contention fixes (v4, not upstream yet) from
-  `zen-kernel/7.3/zswap-contention-v4`.
+  Added the MGLRU fix for the missing `NR_ISOLATED` update from 7.4,
+  not in 7.3 stable yet, and the zswap contention fixes (v4, not
+  upstream yet) from `zen-kernel/7.3/zswap-contention-v4`.
+  Rebased onto 7.3.5: "mm/mglru: don't use stack pointers when walking
+  PUD and PMD tables", the second MGLRU fix from 7.4, is upstream in
+  7.3.5 and dropped from the series.
   Backported the sleepable BPF arena page allocation from 7.4 (four
   commits up to `5316ede1f5d0`, not in 7.3 stable yet): sleepable
   callers allocate arena pages with reclaim before taking the arena
@@ -41,7 +44,9 @@ repository (`tools/ci-build.sh`, GitHub workflow).
   remap, GCC stack conservation; prefer full-idle SMT cores waits for a
   port.
   Rebased onto 7.3.4, where le9uo conflicted with the MGLRU memcg
-  protection fix in `shrink_one()`.
+  protection fix in `shrink_one()`, and onto 7.3.5, where
+  `read_ctrl_pos()` takes an explicit tier range in
+  `get_type_to_scan()`.
 - `btrfs`, `bcache`: the 6.18 series rebased onto 7.3; the btrfs build
   workflow commit moved into this repository.
 - `cltweaks`, `memory`, `pf-ksm` are given up as series; their patches
