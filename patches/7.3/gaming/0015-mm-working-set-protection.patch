@@ -10,6 +10,8 @@ keep it and pass sc to get_type_to_scan().]
 [Rebased onto 7.3.4: shrink_one() computes the memcg protection for
 non-kswapd reclaim since 269a9370df2c; keep the workingset check
 before it and drop the replaced comment.]
+[Rebased onto 7.3.5: read_ctrl_pos() takes an explicit tier range
+since 590c8856baadb; keep the new calls in get_type_to_scan().]
 Assisted-by: Claude
 Signed-off-by: Kai Krakow <kai@kaishome.de>
 ---
@@ -212,10 +214,10 @@ index 604c58199acb..5a57afc27246 100644
  	bool
  
 diff --git a/mm/mm_init.c b/mm/mm_init.c
-index 1533aebafb68..e543ecb87167 100644
+index 36ec1ef0712c..9b035ef15b8b 100644
 --- a/mm/mm_init.c
 +++ b/mm/mm_init.c
-@@ -2598,6 +2598,7 @@ static void __init mem_init_print_info(void)
+@@ -2596,6 +2596,7 @@ static void __init mem_init_print_info(void)
  		, K(totalhigh_pages())
  #endif
  		);
@@ -224,10 +226,10 @@ index 1533aebafb68..e543ecb87167 100644
  
  #ifndef __HAVE_COLOR_ZERO_PAGE
 diff --git a/mm/util.c b/mm/util.c
-index bf0513d1d3d0..e633b3b77a95 100644
+index e31eb565445c..0e1d47af705e 100644
 --- a/mm/util.c
 +++ b/mm/util.c
-@@ -888,6 +888,40 @@ static const struct ctl_table util_sysctl_table[] = {
+@@ -901,6 +901,40 @@ static const struct ctl_table util_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_doulongvec_minmax,
  	},
@@ -269,7 +271,7 @@ index bf0513d1d3d0..e633b3b77a95 100644
  
  static int __init init_vm_util_sysctls(void)
 diff --git a/mm/vmscan.c b/mm/vmscan.c
-index 6a53762d5544..6a15c7b13659 100644
+index 88fd31d13585..d467cb066c78 100644
 --- a/mm/vmscan.c
 +++ b/mm/vmscan.c
 @@ -148,6 +148,15 @@ struct scan_control {
@@ -443,14 +445,14 @@ index 6a53762d5544..6a15c7b13659 100644
  #ifdef CONFIG_LRU_GEN
  
  DEFINE_STATIC_KEY_FALSE(lru_switch);
-@@ -4818,11 +4947,21 @@ static int get_tier_idx(struct lruvec *lruvec, int type)
+@@ -4821,11 +4950,21 @@ static int get_tier_idx(struct lruvec *lruvec, int type)
  	return tier - 1;
  }
  
 -static int get_type_to_scan(struct lruvec *lruvec, int swappiness)
 +static int get_type_to_scan(struct lruvec *lruvec, struct scan_control *sc, int swappiness)
  {
- 	struct ctrl_pos sp, pv = {};
+ 	struct ctrl_pos sp, pv;
  
 -	if (swappiness <= MIN_SWAPPINESS + 1)
 +	if (swappiness == MIN_SWAPPINESS)
@@ -467,7 +469,7 @@ index 6a53762d5544..6a15c7b13659 100644
  		return LRU_GEN_FILE;
  
  	if (swappiness >= MAX_SWAPPINESS)
-@@ -4844,7 +4983,7 @@ static int isolate_folios(unsigned long nr_to_scan, struct lruvec *lruvec,
+@@ -4849,7 +4988,7 @@ static int isolate_folios(unsigned long nr_to_scan, struct lruvec *lruvec,
  {
  	int i;
  	int total_scanned = 0;
@@ -476,7 +478,7 @@ index 6a53762d5544..6a15c7b13659 100644
  
  	for_each_evictable_type(i, swappiness) {
  		int scanned;
-@@ -5101,6 +5240,12 @@ static int shrink_one(struct lruvec *lruvec, struct scan_control *sc)
+@@ -5106,6 +5245,12 @@ static int shrink_one(struct lruvec *lruvec, struct scan_control *sc)
  	struct mem_cgroup *memcg = lruvec_memcg(lruvec);
  	struct pglist_data *pgdat = lruvec_pgdat(lruvec);
  
@@ -489,7 +491,7 @@ index 6a53762d5544..6a15c7b13659 100644
  	/*
  	 * For kswapd, mem_cgroup_calculate_protection() has already
  	 * been called during the top-down cgroup traversal.
-@@ -6266,6 +6411,8 @@ static void shrink_node(pg_data_t *pgdat, struct scan_control *sc)
+@@ -6271,6 +6416,8 @@ static void shrink_node(pg_data_t *pgdat, struct scan_control *sc)
  
  	prepare_scan_control(pgdat, sc);
  

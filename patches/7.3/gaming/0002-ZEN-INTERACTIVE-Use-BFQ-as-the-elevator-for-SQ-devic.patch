@@ -11,7 +11,7 @@ Signed-off-by: Kai Krakow <kai@kaishome.de>
  2 files changed, 8 insertions(+)
 
 diff --git a/block/elevator.c b/block/elevator.c
-index 2161b6eea680..bd010c06aa43 100644
+index 66edf1a5768a..bf26cf10f058 100644
 --- a/block/elevator.c
 +++ b/block/elevator.c
 @@ -729,7 +729,11 @@ void elv_update_nr_hw_queues(struct request_queue *q,

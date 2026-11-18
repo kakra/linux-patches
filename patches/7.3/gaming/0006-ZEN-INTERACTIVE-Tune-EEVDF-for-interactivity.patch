@@ -62,7 +62,7 @@ index b952dfdbd7b9..1345ffff0060 100644
  	bool
  	help
 diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
-index b35e23f93bcd..3da3bc8c2f4c 100644
+index 913630c0b059..532c0de5bc53 100644
 --- a/kernel/sched/fair.c
 +++ b/kernel/sched/fair.c
 @@ -82,10 +82,19 @@ unsigned int sysctl_sched_tunable_scaling = SCHED_TUNABLESCALING_LOG;

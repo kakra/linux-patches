@@ -2069,7 +2069,7 @@ index 000000000000..e55d966a6d17
 +MODULE_DESCRIPTION(ADIOS_PROGNAME);
 \ No newline at end of file
 diff --git a/block/elevator.c b/block/elevator.c
-index 788eafc3880a..9ef56170bde7 100644
+index 8fd2341e0307..e7f51658a0ae 100644
 --- a/block/elevator.c
 +++ b/block/elevator.c
 @@ -729,7 +729,9 @@ void elv_update_nr_hw_queues(struct request_queue *q,
