@@ -9,7 +9,9 @@ describes the format for readers.
 ## Ownership
 
 - `<version>.md`: one file per kernel series, sections per system state
-  (kernel and installed series).
+  (kernel and installed series). Reports of other people go into the file
+  of the series whose patch state they use; each entry names its author,
+  links the source and names the kernel of the reporter, as far as known.
 
 ## Local Contracts
 
