@@ -72,6 +72,34 @@ use the patches; if you do, the submodules are marked shallow:
 git submodule update --init --depth 1 series/btrfs
 ```
 
+## Contributing results
+
+Testers, also those working with AI agents, are welcome to work from a
+clone of this repository and send results as a pull request instead of
+a comment on a kernel pull request. The `AGENTS.md` files in the clone
+hold the rules of each directory for agents.
+
+- Measurements with a method go into `benchmarks/<date>-<topic>/` after
+  [benchmarks/TEMPLATE.md](benchmarks/TEMPLATE.md); notes from daily use
+  go into `observations/<version>.md`, the file of the series whose patch
+  state is used. Follow the conventions of the
+  [benchmarks](benchmarks/README.md) and
+  [observations](observations/README.md) there.
+- Name the author, the kernel version and where the kernel comes from
+  (e.g. a distribution kernel with a port of a series), the series and
+  its commit or patch state, the hardware and storage layout, the active
+  policies and options (e.g. `read_policy`, allocator hints), the method
+  and exact commands, the duration of each run, and any differences
+  between the runs. `tools/state.sh` prints most of the state.
+- Add the raw data as files in the pull request, compressed with `xz`
+  and without host names, user names, serial numbers or file system
+  UUIDs; no links to data elsewhere. Prefer A/B comparisons on the same
+  setup; for btrfs read policies, record `read_stats` per devid before
+  and after each run.
+- Say which parts an AI agent produced: the measurement, the analysis,
+  the text.
+- One report per pull request, in small commits.
+
 ## About this repository
 
 The tools, documentation and history reconstruction were written with the

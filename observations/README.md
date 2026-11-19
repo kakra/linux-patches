@@ -16,3 +16,6 @@ Each entry has:
 
 When an observation is confirmed or refuted by a measurement, add a note
 with a link to the benchmark instead of rewriting the entry.
+
+Reports from other systems are welcome as a pull request; see
+[Contributing results](../README.md#contributing-results).

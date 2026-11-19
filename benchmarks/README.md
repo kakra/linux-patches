@@ -21,3 +21,6 @@ Rules:
 - Raw data and logs contain no host names, home paths, user names, serial
   numbers, MAC addresses or file system UUIDs. File system UUIDs are
   replaced by `<fsid>`.
+
+Results from other systems are welcome as a pull request; see
+[Contributing results](../README.md#contributing-results).
